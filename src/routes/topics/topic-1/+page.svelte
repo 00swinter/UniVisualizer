@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { base } from '$app/paths';
 </script>
 
 <svelte:head>
@@ -11,7 +10,6 @@
 </svelte:head>
 
 <main class="topic-page">
-	<a class="back" href={`${base}/`}>Back to topics</a>
 	<h1>Time Complexity</h1>
 	<p class="course">Algorithms</p>
 
@@ -29,13 +27,6 @@
 		max-width: 760px;
 		margin: 0 auto;
 		padding: 3rem 1.2rem;
-	}
-
-	.back {
-		display: inline-block;
-		color: var(--color-text-muted);
-		text-decoration: none;
-		margin-bottom: 1.2rem;
 	}
 
 	.back:hover {

@@ -43,6 +43,22 @@
     let truthTable = $derived(parseResult.truthTable);
     let errorMessage = $derived(parseResult.errorMessage);
 
+    $effect(() => {
+        const atoms = truthTable?.atoms ?? [];
+        const currentKeys = Object.keys(variableFilters);
+        const hasSameKeys =
+            currentKeys.length === atoms.length &&
+            currentKeys.every((key) => atoms.includes(key));
+
+        if (hasSameKeys) return;
+
+        const nextFilters: Record<string, "true" | "false" | "any"> = {};
+        for (const atom of atoms) {
+            nextFilters[atom] = variableFilters[atom] ?? "any";
+        }
+        variableFilters = nextFilters;
+    });
+
     function getTokenClass(token: string): string {
         if (token === "TRUE") return "tokenTrue";
         if (token === "FALSE") return "tokenFalse";
@@ -76,11 +92,12 @@
     }
 
     function setFilter(atom: string, val: "true" | "false" | "any") {
-        variableFilters[atom] = val;
+        variableFilters = { ...variableFilters, [atom]: val };
     }
 
     function isRowMatch(row: Record<string, number>): boolean {
         for (const atom of Object.keys(variableFilters)) {
+            if (!(atom in row)) continue;
             const filterValue = variableFilters[atom];
             if (filterValue === "any") continue;
 
@@ -164,6 +181,7 @@
 </script>
 
 <div class="page">
+    
     <h1>Logic Parser</h1>
 
     <div class="buttonContainer">
@@ -293,7 +311,11 @@
     .page {
         display: flex;
         flex-direction: column;
+        align-items: center;
         gap: 0.75rem;
+		border: 1px solid red;
+        flex: 1;
+
     }
 
     h1,
