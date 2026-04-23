@@ -1,3 +1,7 @@
+<script lang="ts">
+	import { base } from '$app/paths';
+</script>
+
 <svelte:head>
 	<title>Time Complexity | UniVisualizer</title>
 	<meta
@@ -7,7 +11,7 @@
 </svelte:head>
 
 <main class="topic-page">
-	<a class="back" href="/">Back to topics</a>
+	<a class="back" href={`${base}/`}>Back to topics</a>
 	<h1>Time Complexity</h1>
 	<p class="course">Algorithms</p>
 

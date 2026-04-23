@@ -1,5 +1,6 @@
 <script lang="ts">
 	import topics from '$lib/data/topics.json';
+	import { base } from '$app/paths';
 
 	let searchTerm = $state('');
 
@@ -42,7 +43,7 @@
 			<p class="empty">No topics match your search.</p>
 		{:else}
 			{#each filteredTopics as topic (topic.id)}
-				<a class="card" href={topic.href}>
+				<a class="card" href={`${base}${topic.href}`}>
 					<h2>{topic.title}</h2>
 					<div class="tags">
 						{#if topic.tags?.length}
