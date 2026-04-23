@@ -6,12 +6,14 @@ export default class LogicParser {
         this.tokens = tokenize(expression);
         this.pos = 0;
         let ast = this.parse_OR();
-        console.log("ast:_________", ast);
+
+        if (this.peekToken().type !== "EOF") {
+            throw new Error(`unexpected token "${this.peekToken().value}"`);
+        }
+
         return ast;
     }
     parse_OR() {
-        console.log(`OR pos:${this.pos}`);
-
         let childNodes = [this.parse_AND()];
 
         while (this.peekValue() == "|") {
@@ -27,7 +29,6 @@ export default class LogicParser {
 
     }
     parse_AND() {
-        console.log(`AND pos:${this.pos}`);
         let childNodes = [this.parse_NEGATION()];
 
         while (this.peekValue() == "&") {
@@ -42,7 +43,6 @@ export default class LogicParser {
         }
     }
     parse_NEGATION() {
-        console.log(`NEG pos:${this.pos}`);
         if (this.peekValue() == "!") {
             this.next("!");
             return { type: "NOT", child: this.parse_NEGATION() };
@@ -50,8 +50,17 @@ export default class LogicParser {
         return this.parse_ATOM();
     }
     parse_ATOM() {//expression | literal | variable (expression can be boild down to literall so its on the same level)
-        console.log(`ATOM pos:${this.pos}`);
         let token = this.peekToken();
+        if (token.type == "TRUE") {
+            this.next("TRUE");
+            return { type: "CONST", value: true };
+        }
+
+        if (token.type == "FALSE") {
+            this.next("FALSE");
+            return { type: "CONST", value: false };
+        }
+
         if (token.type == "VAR") {
             this.next("VAR");
 
@@ -80,8 +89,6 @@ export default class LogicParser {
     }
     next(type) {
         const token = this.peekToken();
-        console.log("TOKEN: ", token);
-        console.log("TYPE INPUT: ", type);
 
         if (type && type != token.type) {
             throw new Error(`expected "${type}" instead of "${token.type}"`);
@@ -101,6 +108,8 @@ export default class LogicParser {
 
     evaluate_NODE(node) {
         switch (node.type) {
+            case "CONST":
+                return node.value ? [...(this.universe ?? [])] : [];
             case "VAR":
                 if (detectCase(node.value) == "upper") {
                     //return all groups that match but as the markers whithin so not LEFT but ["markerA", "MarkerB"] in LEFT
@@ -134,6 +143,176 @@ export default class LogicParser {
                 return complement(childListNot, this.universe);
         }
     }
+
+    buildTruthTable(ast) {
+        const subexpressionNodes = this.getSubexpressionNodes(ast);
+        const atoms = this.getAtomicVariables(ast);
+        const constantNodes = subexpressionNodes.filter(({ node }) => node.type === "CONST");
+        const compoundNodes = subexpressionNodes.filter(({ node }) => node.type !== "VAR" && node.type !== "CONST");
+        const columns = [
+            ...atoms,
+            ...constantNodes.map(({ expression }) => expression),
+            ...compoundNodes.map(({ expression }) => expression)
+        ];
+        const rows = [];
+
+        const totalRows = Math.pow(2, atoms.length);
+
+        for (let i = 0; i < totalRows; i++) {
+            const assignment = {};
+
+            atoms.forEach((atom, index) => {
+                const bit = (i >> (atoms.length - index - 1)) & 1;
+                assignment[atom] = bit === 1;
+            });
+
+            const values = {};
+
+            // Always list atomic variables first to show the binary pattern clearly.
+            atoms.forEach((atom) => {
+                values[atom] = assignment[atom] ? 1 : 0;
+            });
+
+            constantNodes.forEach(({ node, expression }) => {
+                values[expression] = this.evaluateBoolean_NODE(node, assignment) ? 1 : 0;
+            });
+
+            compoundNodes.forEach(({ node, expression }) => {
+                values[expression] = this.evaluateBoolean_NODE(node, assignment) ? 1 : 0;
+            });
+
+            rows.push(values);
+        }
+
+        return {
+            atoms,
+            columns,
+            rows
+        };
+    }
+
+    getAtomicVariables(ast) {
+        const atomSet = new Set();
+
+        this.walkNode(ast, (node) => {
+            if (node.type === "VAR") {
+                atomSet.add(node.value);
+            }
+        });
+
+        return [...atomSet].sort((a, b) => a.localeCompare(b));
+    }
+
+    getSubexpressionNodes(ast) {
+        const seen = new Set();
+        const ordered = [];
+
+        const visit = (node) => {
+            if (node.type === "VAR" || node.type === "CONST") {
+                const expression = this.astToExpression(node);
+                if (!seen.has(expression)) {
+                    seen.add(expression);
+                    ordered.push({ node, expression });
+                }
+                return;
+            }
+
+            if (node.type === "NOT") {
+                visit(node.child);
+            } else {
+                node.childNodes.forEach(visit);
+            }
+
+            const expression = this.astToExpression(node);
+            if (!seen.has(expression)) {
+                seen.add(expression);
+                ordered.push({ node, expression });
+            }
+        };
+
+        visit(ast);
+        return ordered;
+    }
+
+    evaluateBoolean_NODE(node, assignment) {
+        switch (node.type) {
+            case "CONST":
+                return node.value;
+            case "VAR":
+                if (!(node.value in assignment)) {
+                    throw new Error(`missing value for variable "${node.value}"`);
+                }
+                return assignment[node.value];
+            case "OR":
+                return node.childNodes.some((child) => this.evaluateBoolean_NODE(child, assignment));
+            case "AND":
+                return node.childNodes.every((child) => this.evaluateBoolean_NODE(child, assignment));
+            case "NOT":
+                return !this.evaluateBoolean_NODE(node.child, assignment);
+            default:
+                throw new Error(`unknown node type "${node.type}"`);
+        }
+    }
+
+    astToExpression(node, parentPrecedence = 0) {
+        const currentPrecedence = this.getNodePrecedence(node);
+        let expression = "";
+
+        switch (node.type) {
+            case "CONST":
+                expression = node.value ? "TRUE" : "FALSE";
+                break;
+            case "VAR":
+                expression = node.value;
+                break;
+            case "NOT": {
+                const childExpression = this.astToExpression(node.child, currentPrecedence);
+                expression = "!" + childExpression;
+                break;
+            }
+            case "AND":
+            case "OR": {
+                const operator = node.type === "AND" ? " & " : " | ";
+                const parts = node.childNodes.map((child) => this.astToExpression(child, currentPrecedence));
+                expression = parts.join(operator);
+                break;
+            }
+            default:
+                throw new Error(`unknown node type "${node.type}"`);
+        }
+
+        if (currentPrecedence < parentPrecedence) {
+            return `(${expression})`;
+        }
+
+        return expression;
+    }
+
+    getNodePrecedence(node) {
+        switch (node.type) {
+            case "OR":
+                return 1;
+            case "AND":
+                return 2;
+            case "NOT":
+                return 3;
+            case "VAR":
+            case "CONST":
+                return 4;
+            default:
+                return 0;
+        }
+    }
+
+    walkNode(node, callback) {
+        callback(node);
+
+        if (node.type === "NOT") {
+            this.walkNode(node.child, callback);
+        } else if (node.type === "AND" || node.type === "OR") {
+            node.childNodes.forEach((child) => this.walkNode(child, callback));
+        }
+    }
 }
 
 function tokenize(input) {
@@ -141,11 +320,11 @@ function tokenize(input) {
     const rawTokens = input.match(pattern) || [];
     const tokens = rawTokens.map(t => evaluateToken(t));
     tokens.push({ type: "EOF", value: null }); //EOF EndOfFile
-    console.log(tokens);
     return tokens;
 }
 
 function evaluateToken(token) {
+    const normalized = token.toUpperCase();
     switch (token) {
         case "|":
             return { type: "|", value: token };
@@ -158,6 +337,12 @@ function evaluateToken(token) {
         case ")":
             return { type: ")", value: token };
         default:
+            if (normalized === "TRUE") {
+                return { type: "TRUE", value: "TRUE" };
+            }
+            if (normalized === "FALSE") {
+                return { type: "FALSE", value: "FALSE" };
+            }
             return { type: "VAR", value: token };
     }
 }
