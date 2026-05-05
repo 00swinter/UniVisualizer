@@ -17,7 +17,6 @@
 		display: flex;
 		justify-content: center;
 		padding: 3rem 1rem;
-		border: 1px solid red;
 	}
 	.back {
 		display: inline-block;

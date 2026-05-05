@@ -313,7 +313,6 @@
         flex-direction: column;
         align-items: center;
         gap: 0.75rem;
-		border: 1px solid red;
         flex: 1;
 
     }

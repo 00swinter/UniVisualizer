@@ -12,5 +12,12 @@
 		"tags": ["ki-2", "logic"],
 		"summary": "evaluate logic expressions visually using truth tables",
 		"href": "/topics/logic-parser"
+	},
+	{
+		"id": "lattis-encryption",
+		"title": "Lattis Encryption",
+		"tags": ["cryptographie"],
+		"summary": "understand lattis encryption used in post quantum encryption",
+		"href": "/topics/lattis-encryption"
 	}
 ]
