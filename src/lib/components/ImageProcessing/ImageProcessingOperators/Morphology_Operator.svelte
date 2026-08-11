@@ -2,6 +2,7 @@
 	import OperatorBase from './OperatorBase.svelte';
 	import { PixelBuffer } from '$lib/classes/PixelBuffer';
 	import OptionSelect from '$lib/components/OptionSelect.svelte';
+	import OptionCheckbox from '$lib/components/OptionCheckbox.svelte';
 	import InfoContainer from '$lib/components/Info_Container.svelte';
 
 	interface Props {
@@ -11,11 +12,32 @@
 	}
 
 	type MorphMode = 'dilation' | 'erosion' | 'opening' | 'closing';
-	type PresetId = 'cross' | 'square3' | 'disc5';
+	type PresetId = 'cross' | 'square3' | 'disc5' | 'heart' | 'amongus' | 'empty';
 
 	const GRID_SIZE = 7;
 	const CENTER = 24;
 	const HALF = 3;
+
+	// Direct 7×7 kernels (row-major). true = active structuring-element cell.
+	const HEART_PRESET: boolean[] = [
+		false, true, true, false, true, true, false,
+		true, true, true, true, true, true, true,
+		true, true, true, true, true, true, true,
+		true, true, true, true, true, true, true,
+		false, true, true, true, true, true, false,
+		false, false, true, true, true, false, false,
+		false, false, false, true, false, false, false
+	];
+
+	const AMONGUS_PRESET: boolean[] = [
+		false, false, true, true, true, false, false,
+		false, true, true, true, true, true, false,
+		true, true, true, false, false, false, false,
+		true, true, true, false, false, false, false,
+		true, true, true, true, true, true, false,
+		false, true, true, true, true, true, false,
+		false, true, true, false, true, true, false
+	];
 
 	const MODE_OPTIONS = [
 		{ id: 'dilation', label: 'Dilation (Grow)' },
@@ -51,6 +73,7 @@
 
 	let mode = $state<MorphMode>('dilation');
 	let gridState = $state(makePreset('cross'));
+	let flipStamp = $state(true);
 
 	const modeInfo = $derived(MODE_INFO[mode]);
 
@@ -60,12 +83,18 @@
 			if (!gridState[i]) continue;
 			const col = i % GRID_SIZE;
 			const row = Math.floor(i / GRID_SIZE);
-			offsets.push({ x: col - HALF, y: row - HALF });
+			const dx = col - HALF;
+			const dy = row - HALF;
+			offsets.push(flipStamp ? { x: -dx, y: -dy } : { x: dx, y: dy });
 		}
 		return offsets;
 	});
 
 	function makePreset(name: PresetId): boolean[] {
+		if (name === 'heart') return [...HEART_PRESET];
+		if (name === 'amongus') return [...AMONGUS_PRESET];
+		if (name === 'empty') return Array(GRID_SIZE * GRID_SIZE).fill(false) as boolean[];
+
 		const grid = Array(GRID_SIZE * GRID_SIZE).fill(false) as boolean[];
 
 		if (name === 'cross') {
@@ -101,6 +130,7 @@
 
 	function onReset() {
 		mode = 'dilation';
+		flipStamp = true;
 		gridState = makePreset('cross');
 	}
 
@@ -182,7 +212,24 @@
 
 		<div class="kernel-section">
 			<div class="kernel-header">
-				<span class="section-label">Structuring Element (7×7)</span>
+				<span class="section-label">Structuring Element</span>
+				<OptionCheckbox label="Flip stamp" bind:checked={flipStamp} />
+			</div>
+			<div class="kernel-editor">
+				<div class="grid-container">
+					{#each gridState as active, i (i)}
+						<button
+							type="button"
+							class="grid-cell"
+							class:active
+							class:center={i === CENTER}
+							onclick={() => toggleCell(i)}
+							aria-label="Toggle kernel pixel {i}"
+							aria-pressed={active}
+						></button>
+					{/each}
+				</div>
+
 				<div class="presets">
 					<button type="button" class="preset-btn" title="Cross" onclick={() => loadPreset('cross')}
 						>✚</button
@@ -196,21 +243,19 @@
 					<button type="button" class="preset-btn" title="Disc" onclick={() => loadPreset('disc5')}
 						>●</button
 					>
-				</div>
-			</div>
-
-			<div class="grid-container">
-				{#each gridState as active, i (i)}
+					<button type="button" class="preset-btn" title="Heart" onclick={() => loadPreset('heart')}
+						>♥</button
+					>
 					<button
 						type="button"
-						class="grid-cell"
-						class:active
-						class:center={i === CENTER}
-						onclick={() => toggleCell(i)}
-						aria-label="Toggle kernel pixel {i}"
-						aria-pressed={active}
-					></button>
-				{/each}
+						class="preset-btn"
+						title="Among Us"
+						onclick={() => loadPreset('amongus')}>ඞ</button
+					>
+					<button type="button" class="preset-btn" title="Empty" onclick={() => loadPreset('empty')}
+						>□</button
+					>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -218,8 +263,9 @@
 	<InfoContainer title={modeInfo.title}>
 		<p>{modeInfo.description}</p>
 		<p>
-			Click cells to edit the structuring element. Presets load a cross, 3×3 box, or disc. Empty
-			kernels pass the image through unchanged.
+			Click cells to edit the structuring element. With Flip stamp on, the kernel is reflected in
+			calculations so the imprint matches the stamp you see. Empty kernels pass the image through
+			unchanged.
 		</p>
 	</InfoContainer>
 </OperatorBase>
@@ -241,12 +287,6 @@
 		border-radius: 8px;
 	}
 
-	.kernel-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
 	.section-label {
 		font: 700 0.65rem 'Inter', sans-serif;
 		color: #94a3b8;
@@ -254,18 +294,47 @@
 		letter-spacing: 0.05em;
 	}
 
+	.kernel-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
+	.kernel-header :global(.option_group.checkbox) {
+		flex-direction: row;
+		gap: 6px;
+	}
+
+	.kernel-header :global(.option_group.checkbox label) {
+		font-size: 0.65rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		white-space: nowrap;
+	}
+
+	.kernel-editor {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 10px;
+	}
+
 	.presets {
 		display: flex;
+		flex-direction: column;
 		gap: 4px;
+		flex-shrink: 0;
 	}
 
 	.preset-btn {
 		background: #161b22;
 		border: 1px solid #343d4a;
 		color: #94a3b8;
-		width: 24px;
-		height: 24px;
-		font-size: 11px;
+		width: 28px;
+		height: 28px;
+		flex-shrink: 0;
+		font-size: 12px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -293,9 +362,8 @@
 		border: 1px solid #343d4a;
 		border-radius: 6px;
 		aspect-ratio: 1;
-		max-width: 220px;
-		align-self: center;
-		width: 100%;
+		width: 220px;
+		max-width: calc(100% - 38px);
 	}
 
 	.grid-cell {
