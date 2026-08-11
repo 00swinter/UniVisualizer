@@ -42,6 +42,13 @@
 	let pipeline: PipelineStep[] = $state([]);
 	let selectedOperatorToAdd = $state(operatorRegistry[0].type);
 
+	/** Image frame heights from GradientViewer, used to size sibling histograms. */
+	let originalImageHeight = $state(0);
+	let stepImageHeights: Record<string, number> = $state({});
+
+	/** Matches GradientViewer media-box border + padding so hist tops align with the image. */
+	const IMAGE_INSET = 11;
+
 	function addStep(type: string, index: number | null = null) {
 		const opDef = operatorRegistry.find((op) => op.type === type);
 
@@ -62,7 +69,12 @@
 	}
 
 	function removeStep(index: number) {
+		const removed = pipeline[index];
 		pipeline = pipeline.filter((_, i) => i !== index);
+		if (removed) {
+			const { [removed.id]: _, ...rest } = stepImageHeights;
+			stepImageHeights = rest;
+		}
 	}
 
 	function moveStep(index: number, direction: number) {
@@ -108,13 +120,17 @@
 				<div class="connector" aria-hidden="true"></div>
 
 				<div class="node image-node">
-					<GradientViewer buffer={originalImage} />
+					<GradientViewer buffer={originalImage} bind:imageHeight={originalImageHeight} />
 				</div>
 
 				<div class="connector" aria-hidden="true"></div>
 
 				<div class="node hist-node">
-					<Histogram input={originalImage} />
+					<Histogram
+						input={originalImage}
+						matchHeight={originalImageHeight}
+						offsetTop={IMAGE_INSET}
+					/>
 				</div>
 			</div>
 		</div>
@@ -147,13 +163,25 @@
 					<div class="connector" aria-hidden="true"></div>
 
 					<div class="node image-node">
-						<GradientViewer buffer={step.output} />
+						<GradientViewer
+							buffer={step.output}
+							bind:imageHeight={
+								() => stepImageHeights[step.id] ?? 0,
+								(h) => {
+									stepImageHeights[step.id] = h;
+								}
+							}
+						/>
 					</div>
 
 					<div class="connector" aria-hidden="true"></div>
 
 					<div class="node hist-node">
-						<Histogram input={step.output} />
+						<Histogram
+							input={step.output}
+							matchHeight={stepImageHeights[step.id] ?? 0}
+							offsetTop={IMAGE_INSET}
+						/>
 					</div>
 				</div>
 			</div>
@@ -308,6 +336,12 @@
 		position: relative;
 		flex-shrink: 0;
 		pointer-events: none;
+	}
+
+	/* Extra room between the image/gradient controls and the histogram */
+	.image-node + .connector {
+		width: 56px;
+		min-width: 56px;
 	}
 
 	.connector::before {

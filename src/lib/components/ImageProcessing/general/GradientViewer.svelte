@@ -7,6 +7,8 @@
     scale?: number;
     imageWidth?: number;
     maxImageHeight?: number;
+    /** Outer image-frame height (incl. borders); bindable for sibling layout. */
+    imageHeight?: number;
   }
 
   type Channel = "r" | "g" | "b" | "a";
@@ -14,7 +16,13 @@
 
   const MAX_DISPLAY_WIDTH = 560;
 
-  let { buffer, scale = 1, imageWidth, maxImageHeight = 380 }: Props = $props();
+  let {
+    buffer,
+    scale = 1,
+    imageWidth,
+    maxImageHeight = 380,
+    imageHeight = $bindable(0),
+  }: Props = $props();
 
   let gradientOpen = $state(false);
   let selectionPct = $state(0.5);
@@ -24,6 +32,10 @@
 
   /** Outer image-frame height (clientHeight + 1px borders), used to size/align the row slider. */
   let imageFrameHeight = $derived(Math.max(0, displayHeight + 2));
+
+  $effect(() => {
+    imageHeight = imageFrameHeight;
+  });
 
   let showR = $state(true);
   let showG = $state(true);
@@ -262,7 +274,7 @@
             onclick={() => (gradientOpen = false)}
             title="Hide gradient"
           >
-            <span class="material-icons-round">expand_more</span>
+            <span class="material-icons-round">expand_less</span>
           </button>
         </div>
       {:else}

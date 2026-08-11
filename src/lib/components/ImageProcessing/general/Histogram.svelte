@@ -4,16 +4,19 @@
 	interface Props {
 		input: PixelBuffer | null;
 		width?: string;
-		height?: string;
+		/** Match sibling image frame height (px). */
+		matchHeight?: number;
+		/** Top offset to align with image inside its padded media box (px). */
+		offsetTop?: number;
 	}
 
 	let {
 		input,
 		width = '100%',
-		height = '150px'
+		matchHeight,
+		offsetTop = 0
 	}: Props = $props();
 
-	let open = $state(false);
 	let showR = $state(true);
 	let showG = $state(true);
 	let showB = $state(true);
@@ -24,6 +27,8 @@
 	let histB = $state(new Uint32Array(256));
 	let histA = $state(new Uint32Array(256));
 	let maxCount = $state(1);
+
+	let matched = $derived(matchHeight != null && matchHeight > 0);
 
 	$effect(() => {
 		if (!input) {
@@ -82,62 +87,76 @@
 	};
 </script>
 
-<div class="operator-card" class:collapsed={!open} style:width={width}>
-	<button type="button" class="header" onclick={() => (open = !open)} aria-expanded={open}>
+<div
+	class="operator-card"
+	class:matched
+	style:width={width}
+	style:height={matched ? `${matchHeight}px` : undefined}
+	style:margin-top={offsetTop > 0 ? `${offsetTop}px` : undefined}
+>
+	<div class="header">
 		<div class="title-group">
 			<span class="icon">📊</span>
 			<span class="title">Histogram</span>
 		</div>
 
-		<span class="material-icons-round chevron">{open ? 'expand_less' : 'expand_more'}</span>
-	</button>
-
-	{#if open}
 		<div class="toggles">
-			<button class="toggle-btn red" class:active={showR} onclick={() => (showR = !showR)}>R</button>
 			<button
+				type="button"
+				class="toggle-btn red"
+				class:active={showR}
+				onclick={() => (showR = !showR)}>R</button
+			>
+			<button
+				type="button"
 				class="toggle-btn green"
 				class:active={showG}
 				onclick={() => (showG = !showG)}>G</button
 			>
-			<button class="toggle-btn blue" class:active={showB} onclick={() => (showB = !showB)}>B</button>
 			<button
+				type="button"
+				class="toggle-btn blue"
+				class:active={showB}
+				onclick={() => (showB = !showB)}>B</button
+			>
+			<button
+				type="button"
 				class="toggle-btn alpha"
 				class:active={showA}
 				onclick={() => (showA = !showA)}>A</button
 			>
 		</div>
+	</div>
 
-		<div class="graph-container" style:height={height}>
-			<div class="y-label top">{maxCount}</div>
-			<div class="y-label mid">{Math.round(maxCount / 2)}</div>
-			<div class="y-label bottom">0</div>
-			<svg viewBox="0 0 100 100" preserveAspectRatio="none">
-				<line x1="0" y1="25" x2="100" y2="25" class="grid-line" />
-				<line x1="0" y1="50" x2="100" y2="50" class="grid-line" />
-				<line x1="0" y1="75" x2="100" y2="75" class="grid-line" />
+	<div class="graph-container">
+		<div class="y-label top">{maxCount}</div>
+		<div class="y-label mid">{Math.round(maxCount / 2)}</div>
+		<div class="y-label bottom">0</div>
+		<svg viewBox="0 0 100 100" preserveAspectRatio="none">
+			<line x1="0" y1="25" x2="100" y2="25" class="grid-line" />
+			<line x1="0" y1="50" x2="100" y2="50" class="grid-line" />
+			<line x1="0" y1="75" x2="100" y2="75" class="grid-line" />
 
-				{#if showR}
-					<path d={createBarPath(histR, maxCount)} fill="#ef4444" class="hist-layer" />
-				{/if}
-				{#if showG}
-					<path d={createBarPath(histG, maxCount)} fill="#22c55e" class="hist-layer" />
-				{/if}
-				{#if showB}
-					<path d={createBarPath(histB, maxCount)} fill="#3b82f6" class="hist-layer" />
-				{/if}
-				{#if showA}
-					<path d={createBarPath(histA, maxCount)} fill="#e5e7eb" class="hist-layer" />
-				{/if}
-			</svg>
-		</div>
+			{#if showR}
+				<path d={createBarPath(histR, maxCount)} fill="#ef4444" class="hist-layer" />
+			{/if}
+			{#if showG}
+				<path d={createBarPath(histG, maxCount)} fill="#22c55e" class="hist-layer" />
+			{/if}
+			{#if showB}
+				<path d={createBarPath(histB, maxCount)} fill="#3b82f6" class="hist-layer" />
+			{/if}
+			{#if showA}
+				<path d={createBarPath(histA, maxCount)} fill="#e5e7eb" class="hist-layer" />
+			{/if}
+		</svg>
+	</div>
 
-		<div class="x-labels">
-			<span>0</span>
-			<span>128</span>
-			<span>255</span>
-		</div>
-	{/if}
+	<div class="x-labels">
+		<span>0</span>
+		<span>128</span>
+		<span>255</span>
+	</div>
 </div>
 
 <style>
@@ -153,34 +172,29 @@
 		width: 100%;
 	}
 
-	.operator-card.collapsed {
-		padding: 8px 12px;
+	.operator-card.matched {
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
 	}
 
 	.header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		gap: 12px;
 		width: 100%;
-		padding: 0;
-		margin: 0;
-		border: none;
-		background: transparent;
-		color: inherit;
-		cursor: pointer;
-		text-align: left;
-	}
-
-	.operator-card:not(.collapsed) .header {
-		margin-bottom: 12px;
+		margin: 0 0 10px;
+		padding: 0 0 8px;
 		border-bottom: 1px solid #444;
-		padding-bottom: 8px;
+		flex-shrink: 0;
 	}
 
 	.title-group {
 		display: flex;
 		align-items: center;
 		gap: 8px;
+		min-width: 0;
 	}
 	.icon {
 		font-size: 1.2rem;
@@ -190,15 +204,10 @@
 		font-size: 0.9rem;
 	}
 
-	.chevron {
-		font-size: 20px;
-		color: #888;
-	}
-
 	.toggles {
 		display: flex;
 		gap: 4px;
-		margin-bottom: 10px;
+		flex-shrink: 0;
 	}
 	.toggle-btn {
 		background: #111;
@@ -213,6 +222,7 @@
 		display: grid;
 		place-items: center;
 		transition: all 0.2s;
+		padding: 0;
 	}
 	.toggle-btn.active.red {
 		background: #ef4444;
@@ -237,11 +247,18 @@
 
 	.graph-container {
 		width: 100%;
+		height: 150px;
 		background: #111;
 		border: 1px solid #444;
 		border-radius: 4px;
 		overflow: hidden;
 		position: relative;
+		flex: 1 1 auto;
+		min-height: 0;
+	}
+
+	.operator-card.matched .graph-container {
+		height: auto;
 	}
 
 	svg {
@@ -292,5 +309,6 @@
 		font-size: 0.7rem;
 		color: #666;
 		font-family: monospace;
+		flex-shrink: 0;
 	}
 </style>
