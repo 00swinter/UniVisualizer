@@ -2,7 +2,7 @@
 	import type { Component } from 'svelte';
 	import type { PixelBuffer } from '$lib/classes/PixelBuffer';
 	import PixelBufferLoader from '$lib/components/ImageProcessing/general/PixelBufferLoader.svelte';
-	import RowProfileViewer from '$lib/components/ImageProcessing/general/RowProfileViewer.svelte';
+	import GradientViewer from '$lib/components/ImageProcessing/general/GradientViewer.svelte';
 	import Histogram from '$lib/components/ImageProcessing/general/Histogram.svelte';
 
 	import Grayscale_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Grayscale_Operator.svelte';
@@ -120,12 +120,11 @@
 			</div>
 
 			<div class="main-col">
-				<RowProfileViewer buffer={originalImage} />
+				<GradientViewer buffer={originalImage} />
 			</div>
 		</div>
 
 		{#each pipeline as step, i (step.id)}
-			<h1>{step.label}</h1>
 			<div class="step-card">
 				<div class="step-badge">
 					{i + 2}
@@ -152,7 +151,7 @@
 				</div>
 
 				<div class="main-col">
-					<RowProfileViewer buffer={step.output} />
+					<GradientViewer buffer={step.output} />
 				</div>
 			</div>
 		{/each}
@@ -259,7 +258,7 @@
 	.page-layout {
 		max-width: 1500px;
 		margin: 0 auto;
-		padding: 40px;
+		padding: 24px;
 		background-color: #0d0d0d; /* Very dark background */
 		min-height: 100vh;
 		font-family: sans-serif;
@@ -270,8 +269,8 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		margin-bottom: 40px;
-		padding-bottom: 20px;
+		margin-bottom: 24px;
+		padding-bottom: 16px;
 		border-bottom: 1px solid #333;
 	}
 
@@ -288,7 +287,7 @@
 		position: relative; /* Context for the line */
 		display: flex;
 		flex-direction: column;
-		gap: 15px;
+		gap: 10px;
 	}
 
 	/* The Vertical Dashed Line */
@@ -314,12 +313,12 @@
 		position: relative;
 		display: flex;
 		flex-direction: row;
-		gap: 20px;
+		gap: 14px;
 
 		background: #1a1a1a;
 		border: 1px solid #333;
 		border-radius: 12px;
-		padding: 20px;
+		padding: 14px;
 
 		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 		z-index: 1; /* Sit above the line */
@@ -347,23 +346,22 @@
 	.sidebar-col {
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between; /* Keeps histogram at bottom */
+		justify-content: flex-start;
 		align-items: stretch; /* Stretch to fill width */
+		gap: 10px;
 
 		/* Fixed width ensures alignment across steps */
-		width: 400px;
-		min-width: 400px;
+		width: 360px;
+		min-width: 360px;
 
 		background: #161616;
 		border-radius: 8px;
 		border: 1px solid #2a2a2a;
-		padding: 15px;
+		padding: 12px;
 	}
 
 	.operator-wrapper {
-		margin-bottom: 20px;
-		/* Make the operator look like it's attached */
-		padding-bottom: 15px;
+		padding-bottom: 10px;
 		border-bottom: 1px dashed #333;
 	}
 
@@ -389,7 +387,7 @@
 		background: #111;
 		border-radius: 8px;
 		border: 1px solid #2a2a2a;
-		padding: 10px;
-		min-height: 300px; /* Ensure visual weight even if empty */
+		padding: 8px;
+		min-height: 0;
 	}
 </style>
