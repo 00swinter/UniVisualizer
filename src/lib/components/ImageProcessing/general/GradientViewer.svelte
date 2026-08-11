@@ -243,20 +243,18 @@
 
       {#if gradientOpen}
         <div class="gradient-ctrl" style:--image-h="{imageFrameHeight}px">
-          <div class="slider-rail">
-            <div class="slider-wrap">
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.001"
-                bind:value={selectionPct}
-                class="vertical-slider"
-                style:width="{Math.max(40, imageFrameHeight)}px"
-                aria-label="Scan row"
-                aria-orientation="vertical"
-              />
-            </div>
+          <div class="slider-wrap">
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.001"
+              bind:value={selectionPct}
+              class="vertical-slider"
+              style:width="{Math.max(40, imageFrameHeight)}px"
+              aria-label="Scan row"
+              aria-orientation="vertical"
+            />
           </div>
           <button
             type="button"
@@ -375,12 +373,6 @@
     grid-area: chartCh;
   }
 
-  .chart-header {
-    font-size: 0.75rem;
-    margin-bottom: 6px;
-    color: #888;
-  }
-
   .chart-body {
     position: relative;
     width: var(--media-w);
@@ -422,62 +414,53 @@
   }
 
   .gradient-ctrl {
-    /* Match media-box inset so the rail lines up with the image frame */
-    margin-top: calc(var(--media-border) + var(--media-pad));
+    /* Match media-box inset so the slider area lines up with the image frame */
+    padding-top: calc(var(--media-border) + var(--media-pad));
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-  }
-
-  .slider-rail {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
     width: 36px;
-    height: var(--image-h);
-    padding: 0;
+    flex-shrink: 0;
     box-sizing: border-box;
     border-radius: 10px;
     background: rgba(30, 30, 34, 0.92);
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+  }
+
+  .slider-wrap {
+    height: var(--image-h);
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    box-sizing: border-box;
   }
 
   .collapse-gradient {
     display: grid;
     place-items: center;
-    width: 36px;
+    width: 100%;
     height: 28px;
     padding: 0;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(30, 30, 34, 0.92);
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+    background: transparent;
     color: #888;
     cursor: pointer;
     flex-shrink: 0;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
   }
 
   .collapse-gradient:hover {
     color: #ddd;
-    border-color: rgba(59, 130, 246, 0.45);
+    background: rgba(255, 255, 255, 0.04);
   }
 
   .collapse-gradient .material-icons-round {
     font-size: 18px;
-  }
-
-  .slider-wrap {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 0;
-    width: 100%;
-    height: 100%;
   }
 
   .view-gradient-tab {
