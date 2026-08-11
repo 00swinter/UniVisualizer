@@ -14,6 +14,7 @@ export class Point extends Math2dPlotItem{
     type = 'point';
     label = "";
 
+    /** @type {((x: number, y: number) => { x?: number, y?: number }) | null} */
     constraint = null;
     isDraggable = false;
 

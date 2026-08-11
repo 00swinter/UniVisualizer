@@ -7,8 +7,8 @@
         scale?: number;
     }
 
-    type Channel = 'r' | 'g' | 'b';
-    type RowPixel = { r: number; g: number; b: number };
+    type Channel = 'r' | 'g' | 'b' | 'a';
+    type RowPixel = { r: number; g: number; b: number; a: number };
 
     let { buffer, scale = 1 }: Props = $props();
 
@@ -20,6 +20,7 @@
     let showR = $state(true);
     let showG = $state(true);
     let showB = $state(true);
+    let showA = $state(false);
 
     let rowIndex = $derived.by(() => {
         if (!buffer || buffer.height <= 1) return 0;
@@ -42,7 +43,12 @@
         const rowSlice = new Uint8ClampedArray(buffer.data.slice(start, end));
         const pixels: RowPixel[] = [];
         for (let i = 0; i < rowSlice.length; i += 4) {
-            pixels.push({ r: rowSlice[i], g: rowSlice[i + 1], b: rowSlice[i + 2] });
+            pixels.push({
+                r: rowSlice[i],
+                g: rowSlice[i + 1],
+                b: rowSlice[i + 2],
+                a: rowSlice[i + 3]
+            });
         }
         return pixels;
     });
@@ -88,6 +94,7 @@
             if (showR) drawGraphLine('#ef4444', 'r');
             if (showG) drawGraphLine('#22c55e', 'g');
             if (showB) drawGraphLine('#3b82f6', 'b');
+            if (showA) drawGraphLine('#e5e7eb', 'a');
         }
     });
 </script>
@@ -96,13 +103,13 @@
     
     {#if buffer}
         <div class="inspector-layout">
-            <div class="image-wrapper" bind:clientHeight={displayHeight}>
-                <PixelBufferDisplay buffer={buffer} fixedWidth={600} />
-                
-                <div 
-                    class="scan-line"
-                    style:top="{scanLineTopPct}%"
-                ></div>
+            <div class="image-wrapper">
+                <PixelBufferDisplay buffer={buffer} fixedWidth={600} bind:imageHeight={displayHeight}>
+                    <div 
+                        class="scan-line"
+                        style:top="{scanLineTopPct}%"
+                    ></div>
+                </PixelBufferDisplay>
             </div>
 
             <div class="slider-wrapper" style:height="{displayHeight}px">
@@ -113,6 +120,9 @@
                     step="0.001"
                     bind:value={selectionPct} 
                     class="vertical-slider"
+                    style:width="{displayHeight}px"
+                    aria-label="Scan row"
+                    aria-orientation="vertical"
                 />
             </div>
         </div>
@@ -140,6 +150,12 @@
                         onclick={() => showB = !showB}
                         title="Toggle Blue"
                     >B</button>
+                    <button 
+                        class="toggle-btn alpha" 
+                        class:active={showA} 
+                        onclick={() => showA = !showA}
+                        title="Toggle Alpha"
+                    >A</button>
                 </div>
             </div>
             
@@ -182,7 +198,7 @@
     .inspector-layout {
         display: flex;
         gap: 15px;
-        align-items: flex-start;
+        align-items: flex-end;
     }
 
     .image-wrapper {
@@ -212,15 +228,79 @@
         border: 1px solid #333;
     }
 
+    /* Horizontal range rotated 90° — consistent across browsers
+       (avoids deprecated slider-vertical / writing-mode: bt-lr).
+       Min ends up at the top so pct 0 maps to row 0. */
     .vertical-slider {
-        writing-mode: bt-lr; 
-        -webkit-appearance: slider-vertical;
-        width: 8px;
-        height: 100%; 
+        -webkit-appearance: none;
+        appearance: none;
+        height: 22px;
         margin: 0;
         padding: 0;
+        background: transparent;
         cursor: pointer;
-        transform: rotate(180deg);
+        transform: rotate(90deg);
+        transform-origin: center center;
+        flex-shrink: 0;
+    }
+
+    .vertical-slider:focus {
+        outline: none;
+    }
+
+    .vertical-slider:focus-visible::-webkit-slider-thumb {
+        box-shadow:
+            0 0 0 3px rgba(0, 0, 0, 0.45),
+            0 0 0 5px rgba(239, 68, 68, 0.45);
+    }
+
+    .vertical-slider:focus-visible::-moz-range-thumb {
+        box-shadow:
+            0 0 0 3px rgba(0, 0, 0, 0.45),
+            0 0 0 5px rgba(239, 68, 68, 0.45);
+    }
+
+    .vertical-slider::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 999px;
+        background: #333;
+        border: 1px solid #444;
+    }
+
+    .vertical-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        margin-top: -6px;
+        border-radius: 50%;
+        background: #ef4444;
+        border: 2px solid #111;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+        cursor: pointer;
+    }
+
+    .vertical-slider::-moz-range-track {
+        height: 6px;
+        border-radius: 999px;
+        background: #333;
+        border: 1px solid #444;
+    }
+
+    .vertical-slider::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #ef4444;
+        border: 2px solid #111;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+        cursor: pointer;
+    }
+
+    .vertical-slider::-moz-range-progress {
+        height: 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, #ef4444 45%, #333);
     }
 
     .chart-container {
@@ -297,6 +377,12 @@
         color: #fff;
         border-color: #3b82f6;
         box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+    }
+    .toggle-btn.active.alpha {
+        background: #e5e7eb;
+        color: #111;
+        border-color: #e5e7eb;
+        box-shadow: 0 0 8px rgba(229, 231, 235, 0.4);
     }
 
     canvas {

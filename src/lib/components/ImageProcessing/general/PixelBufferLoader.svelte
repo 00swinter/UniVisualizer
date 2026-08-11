@@ -118,9 +118,11 @@
     }
   });
 
-  const handleLoadExample = () => {
-    if (selectedExample) loadImageSource(selectedExample);
+  const handleSelectExample = (url: string) => {
+    selectedExample = url;
+    loadImageSource(url);
   };
+
   const handleLoadUrl = () => {
     if (customUrl) loadImageSource(customUrl);
   };
@@ -144,6 +146,10 @@
       loadImageSource(random);
     }
   });
+
+  const closeMenu = () => {
+    isMenuOpen = false;
+  };
 </script>
 
 <div class="loader-wrapper">
@@ -181,31 +187,40 @@
   {#if isMenuOpen}
     <div
       class="modal-backdrop"
-      onclick={() => (isMenuOpen = false)}
+      onclick={closeMenu}
       role="presentation"
     ></div>
 
     <div class="modal-content">
       <div class="modal-header">
         <h3>Load Image</h3>
-        <button class="btn-close" onclick={() => (isMenuOpen = false)}>✕</button
-        >
+        <button class="btn-close" onclick={closeMenu}>✕</button>
       </div>
 
       <div class="modal-body">
-        <div class="option-row">
-          <span class="opt-label">Example</span>
-          <select bind:value={selectedExample}>
-            <option value="" disabled selected>Select preset...</option>
-            {#each examples as ex}
-              <option value={ex.url}>{ex.name}</option>
+        <div class="examples-section">
+          <span class="section-label">Example</span>
+          <div class="example-grid" role="listbox" aria-label="Example images">
+            {#each examples as ex (ex.url)}
+              <button
+                type="button"
+                class="example-card"
+                class:selected={selectedExample === ex.url}
+                role="option"
+                aria-selected={selectedExample === ex.url}
+                onclick={() => handleSelectExample(ex.url)}
+              >
+                <span class="example-name">{ex.name}</span>
+                <img
+                  class="example-thumb"
+                  src={ex.url}
+                  alt=""
+                  loading="lazy"
+                  referrerpolicy="no-referrer"
+                />
+              </button>
             {/each}
-          </select>
-          <button
-            class="btn-action"
-            onclick={handleLoadExample}
-            disabled={!selectedExample}>Go</button
-          >
+          </div>
         </div>
 
         <div class="option-row">
@@ -303,9 +318,85 @@
     font-family: monospace;
   }
   input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
     width: 100%;
-    accent-color: var(--accent);
+    height: 22px;
+    margin: 0;
+    background: transparent;
     cursor: pointer;
+  }
+
+  input[type="range"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  input[type="range"]:focus {
+    outline: none;
+  }
+
+  input[type="range"]:focus-visible::-webkit-slider-thumb {
+    box-shadow:
+      0 0 0 3px rgba(0, 0, 0, 0.45),
+      0 0 0 5px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+
+  input[type="range"]:focus-visible::-moz-range-thumb {
+    box-shadow:
+      0 0 0 3px rgba(0, 0, 0, 0.45),
+      0 0 0 5px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: #333;
+    border: 1px solid #444;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #111;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+  }
+
+  input[type="range"]:disabled::-webkit-slider-thumb {
+    cursor: not-allowed;
+  }
+
+  input[type="range"]::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: #333;
+    border: 1px solid #444;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #111;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+  }
+
+  input[type="range"]:disabled::-moz-range-thumb {
+    cursor: not-allowed;
+  }
+
+  input[type="range"]::-moz-range-progress {
+    height: 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 45%, #333);
   }
 
   .btn-main {
@@ -336,18 +427,20 @@
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translateY(-500px) translateX(-160px);
-    width: 320px;
+    transform: translate(-50%, -50%);
+    width: min(560px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
     background: var(--modal-bg);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 16px;
+    padding: 20px;
     z-index: 100;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    animation: slideIn 0.5s ease-out;
+    animation: fadeIn 0.2s ease-out;
   }
 
-  @keyframes slideIn {
+  @keyframes fadeIn {
     from {
       opacity: 0;
     }
@@ -381,7 +474,71 @@
   .modal-body {
     display: flex;
     flex-direction: column;
+    gap: 14px;
+  }
+
+  .examples-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .section-label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .example-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     gap: 12px;
+  }
+
+  .example-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 8px 6px;
+    color: white;
+    cursor: pointer;
+    min-width: 0;
+  }
+
+  .example-card:hover {
+    background: #333;
+    border-color: #555;
+  }
+
+  .example-card.selected {
+    background: #2a3a55;
+    border-color: var(--accent);
+  }
+
+  .example-name {
+    width: 100%;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--text);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+  }
+
+  .example-thumb {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 6px;
+    background: #222;
+    border: 1px solid #555;
+    flex-shrink: 0;
   }
 
   .option-row {
@@ -390,12 +547,12 @@
     align-items: center;
   }
   .opt-label {
-    width: 60px;
+    width: 40px;
     font-size: 0.8rem;
     color: var(--text-dim);
+    flex-shrink: 0;
   }
 
-  select,
   input[type="text"] {
     flex: 1;
     background: #333;
@@ -413,8 +570,9 @@
     border-radius: 4px;
     padding: 0 10px;
     width: 50px;
-    height: 50px;
+    height: 36px;
     cursor: pointer;
+    flex-shrink: 0;
   }
   .btn-action:disabled {
     background: #444;
@@ -425,7 +583,7 @@
   .divider {
     text-align: center;
     position: relative;
-    margin: 8px 0;
+    margin: 4px 0;
   }
   .divider::before {
     content: "";
@@ -458,5 +616,16 @@
   }
   .btn-upload:hover {
     background: #404040;
+  }
+
+  @media (max-width: 480px) {
+    .example-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .example-thumb {
+      width: 60px;
+      height: 60px;
+    }
   }
 </style>

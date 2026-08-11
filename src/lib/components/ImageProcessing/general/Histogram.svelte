@@ -16,10 +16,12 @@
     let showR = $state(true);
     let showG = $state(true);
     let showB = $state(true);
+    let showA = $state(false);
 
     let histR = $state(new Uint32Array(256));
     let histG = $state(new Uint32Array(256));
     let histB = $state(new Uint32Array(256));
+    let histA = $state(new Uint32Array(256));
     let maxCount = $state(1);
 
     $effect(() => {
@@ -27,6 +29,7 @@
             histR.fill(0);
             histG.fill(0);
             histB.fill(0);
+            histA.fill(0);
             return;
         }
 
@@ -34,11 +37,13 @@
         const r = new Uint32Array(256);
         const g = new Uint32Array(256);
         const b = new Uint32Array(256);
+        const a = new Uint32Array(256);
 
         for (let i = 0; i < src.length; i += 4) {
             r[src[i]]++;
             g[src[i + 1]]++;
             b[src[i + 2]]++;
+            a[src[i + 3]]++;
         }
 
         let max = 0;
@@ -46,11 +51,13 @@
             if (r[i] > max) max = r[i];
             if (g[i] > max) max = g[i];
             if (b[i] > max) max = b[i];
+            if (a[i] > max) max = a[i];
         }
 
         histR = r;
         histG = g;
         histB = b;
+        histA = a;
 
         maxCount = max > 0 ? max : 1;
     });
@@ -85,6 +92,7 @@
             <button class="toggle-btn red" class:active={showR} onclick={() => showR = !showR}>R</button>
             <button class="toggle-btn green" class:active={showG} onclick={() => showG = !showG}>G</button>
             <button class="toggle-btn blue" class:active={showB} onclick={() => showB = !showB}>B</button>
+            <button class="toggle-btn alpha" class:active={showA} onclick={() => showA = !showA}>A</button>
         </div>
     </div>
 
@@ -103,6 +111,9 @@
             {/if}
             {#if showB}
                 <path d={createBarPath(histB, maxCount)} fill="#3b82f6" class="hist-layer"/>
+            {/if}
+            {#if showA}
+                <path d={createBarPath(histA, maxCount)} fill="#e5e7eb" class="hist-layer"/>
             {/if}
         </svg>
     </div>
@@ -152,6 +163,7 @@
     .toggle-btn.active.red { background: #ef4444; color: #fff; border-color: #ef4444; }
     .toggle-btn.active.green { background: #22c55e; color: #fff; border-color: #22c55e; }
     .toggle-btn.active.blue { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+    .toggle-btn.active.alpha { background: #e5e7eb; color: #111; border-color: #e5e7eb; }
 
     .graph-container {
         width: 100%;

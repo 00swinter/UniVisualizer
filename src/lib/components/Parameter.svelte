@@ -86,11 +86,74 @@
 
     }
 
-    /* Range Slider Styling */
+    /* Range Slider — cross-browser (WebKit + Firefox) */
     .slider {
+        -webkit-appearance: none;
+        appearance: none;
         width: 100%;
-        accent-color: var(--accent-color);
+        height: 22px;
+        margin: 0;
+        background: transparent;
         cursor: pointer;
+    }
+
+    .slider:focus {
+        outline: none;
+    }
+
+    .slider:focus-visible::-webkit-slider-thumb {
+        box-shadow:
+            0 0 0 3px rgba(0, 0, 0, 0.45),
+            0 0 0 5px color-mix(in srgb, var(--accent-color) 55%, transparent);
+    }
+
+    .slider:focus-visible::-moz-range-thumb {
+        box-shadow:
+            0 0 0 3px rgba(0, 0, 0, 0.45),
+            0 0 0 5px color-mix(in srgb, var(--accent-color) 55%, transparent);
+    }
+
+    .slider::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 999px;
+        background: #333;
+        border: 1px solid #444;
+    }
+
+    .slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        margin-top: -6px;
+        border-radius: 50%;
+        background: var(--accent-color);
+        border: 2px solid #111;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+        cursor: pointer;
+    }
+
+    .slider::-moz-range-track {
+        height: 6px;
+        border-radius: 999px;
+        background: #333;
+        border: 1px solid #444;
+    }
+
+    .slider::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--accent-color);
+        border: 2px solid #111;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+        cursor: pointer;
+    }
+
+    .slider::-moz-range-progress {
+        height: 6px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--accent-color) 45%, #333);
     }
 
     /* Input Box Styling (Number/Text) */

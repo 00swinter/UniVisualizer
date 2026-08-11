@@ -8,6 +8,8 @@
 	import Grayscale_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Grayscale_Operator.svelte';
 	import Convolution_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Convolution_Operator.svelte';
 	import Contrast_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Contrast_Operator.svelte';
+	import Threshold_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Threshold_Operator.svelte';
+	import Morphology_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Morphology_Operator.svelte';
 
 	// --- 1. CONFIGURATION ---
 
@@ -34,7 +36,9 @@
 	const operatorRegistry: OperatorDef[] = [
 		{ type: 'grayscale', label: 'Grayscale', component: Grayscale_Operator },
 		{ type: 'convolution', label: 'Convolution', component: Convolution_Operator },
-		{ type: 'contrast', label: 'Contrast', component: Contrast_Operator }
+		{ type: 'contrast', label: 'Contrast', component: Contrast_Operator },
+		{ type: 'threshold', label: 'Threshold', component: Threshold_Operator },
+		{ type: 'morphology', label: 'Morphology', component: Morphology_Operator }
 	];
 
 	// --- 2. STATE ---

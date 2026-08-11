@@ -2,6 +2,7 @@
 	import OperatorBase from './OperatorBase.svelte';
 	import { PixelBuffer } from '$lib/classes/PixelBuffer';
 	import OptionSelect from '../../OptionSelect.svelte';
+	import OptionCheckbox from '../../OptionCheckbox.svelte';
 	import InfoContainer from '$lib/components/Info_Container.svelte';
 
 	interface Props {
@@ -50,6 +51,59 @@
 		{ id: 'custom', label: 'Custom' }
 	];
 
+	const PRESET_INFO: Record<PresetId, { title: string; description: string }> = {
+		identity: {
+			title: 'Identity',
+			description:
+				'Leaves the image unchanged. The center weight is 1 and every neighbor is 0, so each output pixel copies its input.'
+		},
+		box_blur: {
+			title: 'Box Blur',
+			description:
+				'Averages all 9 neighbors equally. Softens detail and noise with a uniform, box-shaped smoothing effect.'
+		},
+		gaussian_blur: {
+			title: 'Gaussian Blur',
+			description:
+				'A softer blur that weights the center more than the edges (approximation of a Gaussian). Smooths the image while keeping a bit more structure than a box blur.'
+		},
+		sharpen: {
+			title: 'Sharpen',
+			description:
+				'Boosts the center pixel and subtracts its neighbors. Increases local contrast so edges and fine detail look crisper.'
+		},
+		laplace: {
+			title: 'Laplace',
+			description:
+				'A 4-neighbor Laplacian edge detector. Highlights sudden intensity changes; flat regions become dark and edges stand out.'
+		},
+		laplace_diag: {
+			title: 'Laplace (8-neighbor)',
+			description:
+				'Like Laplace, but includes diagonals too. More sensitive to edges in every direction around each pixel.'
+		},
+		sobel_x: {
+			title: 'Sobel X',
+			description:
+				'Detects vertical edges by measuring horizontal gradients (left vs right). Strong responses where brightness changes sideways.'
+		},
+		sobel_y: {
+			title: 'Sobel Y',
+			description:
+				'Detects horizontal edges by measuring vertical gradients (top vs bottom). Strong responses where brightness changes up/down.'
+		},
+		emboss: {
+			title: 'Emboss',
+			description:
+				'Creates a relief / stamped look by contrasting opposite corners of the neighborhood, as if lit from one direction.'
+		},
+		custom: {
+			title: 'Custom',
+			description:
+				'You are editing the kernel manually. Change any weight to design your own filter; pick a preset again to reload a known kernel.'
+		}
+	};
+
 	const REPEAT_OPTIONS = [
 		{ id: '1', label: '1×' },
 		{ id: '2', label: '2×' },
@@ -61,6 +115,9 @@
 	let kernel = $state([...PRESETS.identity] as number[]);
 	let preset: PresetId = $state('identity');
 	let repeats = $state('1');
+	let mutateAlpha = $state(false);
+
+	const presetInfo = $derived(PRESET_INFO[preset]);
 
 	function applyPreset(id: PresetId) {
 		if (id === 'custom') return;
@@ -74,6 +131,7 @@
 	function onReset() {
 		preset = 'identity';
 		repeats = '1';
+		mutateAlpha = false;
 		applyPreset('identity');
 	}
 
@@ -92,14 +150,13 @@
 		return src.getPixel(cx, cy);
 	}
 
-	function convolveOnce(src: PixelBuffer, k: number[]): PixelBuffer {
+	function convolveOnce(src: PixelBuffer, k: number[], shouldMutateAlpha: boolean): PixelBuffer {
 		const kernelSum = k.reduce((sum, w) => sum + w, 0);
 		const normalize = Math.abs(kernelSum) > 1e-6;
 		const next = new PixelBuffer(src.width, src.height);
 
 		for (let y = 0; y < src.height; y++) {
 			for (let x = 0; x < src.width; x++) {
-				// Premultiplied RGB + alpha so transparent borders soften correctly
 				let r = 0;
 				let g = 0;
 				let b = 0;
@@ -109,11 +166,11 @@
 					for (let kx = 0; kx < KERNEL_SIZE; kx++) {
 						const weight = k[ky * KERNEL_SIZE + kx];
 						const px = sample(src, x + kx - HALF, y + ky - HALF);
-						const alpha = px.a / 255;
-						r += px.r * alpha * weight;
-						g += px.g * alpha * weight;
-						b += px.b * alpha * weight;
-						a += px.a * weight;
+						// Straight RGB — alpha must not influence color when mutate-alpha is off
+						r += px.r * weight;
+						g += px.g * weight;
+						b += px.b * weight;
+						if (shouldMutateAlpha) a += px.a * weight;
 					}
 				}
 
@@ -121,27 +178,16 @@
 					r /= kernelSum;
 					g /= kernelSum;
 					b /= kernelSum;
-					a /= kernelSum;
+					if (shouldMutateAlpha) a /= kernelSum;
 				} else {
 					// Zero-sum kernels (Sobel/Laplace): abs so edges stay visible
 					r = Math.abs(r);
 					g = Math.abs(g);
 					b = Math.abs(b);
-					a = Math.abs(a);
+					if (shouldMutateAlpha) a = Math.abs(a);
 				}
 
-				const outA = clampByte(a);
-				if (outA > 0) {
-					const inv = 255 / outA;
-					r *= inv;
-					g *= inv;
-					b *= inv;
-				} else {
-					r = 0;
-					g = 0;
-					b = 0;
-				}
-
+				const outA = shouldMutateAlpha ? clampByte(a) : src.getPixel(x, y).a;
 				next.setPixel(x, y, clampByte(r), clampByte(g), clampByte(b), outA);
 			}
 		}
@@ -161,10 +207,11 @@
 
 		const k = kernel;
 		const times = Number(repeats) || 1;
+		const shouldMutateAlpha = mutateAlpha;
 		let current: PixelBuffer = input;
 
 		for (let i = 0; i < times; i++) {
-			current = convolveOnce(current, k);
+			current = convolveOnce(current, k, shouldMutateAlpha);
 		}
 
 		output = current;
@@ -173,8 +220,6 @@
 
 <OperatorBase title="Custom Kernel" icon="grid_on" bind:enabled {onReset}>
 	<div class="kernel-ui">
-		<OptionSelect label="Repeat" bind:value={repeats} options={REPEAT_OPTIONS} />
-
 		<div class="kernel-grid">
 			{#each kernel as _, index (index)}
 				<div class="cell-wrapper">
@@ -188,18 +233,23 @@
 			{/each}
 		</div>
 
-		<OptionSelect
-			label="Preset"
-			bind:value={() => preset, onPresetSelect}
-			options={PRESET_OPTIONS}
-		/>
+		<div class="controls-row">
+			<OptionSelect
+				label="Preset"
+				bind:value={() => preset, onPresetSelect}
+				options={PRESET_OPTIONS}
+			/>
+			<OptionSelect label="Repeat" bind:value={repeats} options={REPEAT_OPTIONS} />
+			<OptionCheckbox label="Affect alpha" bind:checked={mutateAlpha} />
+		</div>
 	</div>
 
-	<InfoContainer title="Instructions">
+	<InfoContainer title={presetInfo.title}>
+		<p>{presetInfo.description}</p>
 		<p>
-			Pick a <strong>preset</strong> or edit the 3×3 kernel weights directly. The default is an
-			identity kernel (all zeros with <strong>1</strong> in the center). Use <strong>Repeat</strong>
-			to apply the same kernel multiple times in a row.
+			Use <strong>Repeat</strong> to apply the kernel multiple times.
+			{' '}<strong>Affect alpha</strong> only changes whether alpha is convolved; RGB is always
+			filtered the same way.
 		</p>
 	</InfoContainer>
 </OperatorBase>
@@ -221,6 +271,21 @@
 		justify-content: center;
 	}
 
+	.controls-row {
+		display: flex;
+		gap: 12px;
+		align-items: flex-end;
+	}
+
+	.controls-row :global(.option_group) {
+		flex: 1;
+		margin-bottom: 0;
+	}
+
+	.controls-row :global(.option_group.checkbox) {
+		flex: 0 0 auto;
+	}
+
 	.cell-wrapper {
 		position: relative;
 		background: #222;
@@ -237,6 +302,7 @@
 		color: white;
 		text-align: center;
 		font-family: monospace;
+		font-size: 1rem;
 	}
 
 	input::-webkit-outer-spin-button,
