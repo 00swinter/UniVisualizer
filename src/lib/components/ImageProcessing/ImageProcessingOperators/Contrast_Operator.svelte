@@ -1,17 +1,22 @@
-<script>
+<script lang="ts">
 	import OperatorBase from './OperatorBase.svelte';
 	import { PixelBuffer } from '$lib/classes/PixelBuffer';
 	import MathPlot2D from '$lib/components/MathPlot2D.svelte';
 	import * as MD from '$lib/classes/MathPlot2D.svelte.js';
-	import OptionSelect from '../../OptionSelect.svelte';
 	import RadioSelect from '$lib/components/RadioSelect.svelte';
 	import { Colors } from '$lib/classes/Colors';
 
-	let { input, output = $bindable(), enabled = $bindable(true) } = $props();
+	interface Props {
+		input: PixelBuffer | null;
+		output?: PixelBuffer | null;
+		enabled?: boolean;
+	}
 
-	let controlMode = $state('linear'); // 'linear', 'gamma', 'bezier'
-	let channelMode = $state('all'); // "all", "seperated"
-	let activeTab = $state('red');
+	let { input, output = $bindable(null), enabled = $bindable(true) }: Props = $props();
+
+	let controlMode = $state<'linear' | 'gamma' | 'bezier'>('linear');
+	let channelMode = $state<'all' | 'seperated'>('all');
+	let activeTab = $state<'red' | 'green' | 'blue'>('red');
 
 	function onReset() {}
 
@@ -20,26 +25,27 @@
 	// linear
 
 	const linear_points = {
-		all1: new MD.Point(15,15),
+		all1: new MD.Point(15, 15),
 		all2: new MD.Point(128, 128),
 		all3: new MD.Point(240, 240),
 
-		red1: new MD.Point(15,15),
+		red1: new MD.Point(15, 15),
 		red2: new MD.Point(128, 128),
 		red3: new MD.Point(240, 240),
 
-		green1: new MD.Point(15,15),
+		green1: new MD.Point(15, 15),
 		green2: new MD.Point(128, 128),
 		green3: new MD.Point(240, 240),
 
-		blue1: new MD.Point(15,15),
+		blue1: new MD.Point(15, 15),
 		blue2: new MD.Point(128, 128),
 		blue3: new MD.Point(240, 240)
-	}
+	};
 
 	Object.values(linear_points).forEach((p) => {
 		p.isDraggable = true;
-		p.constraint = (x, y) => ({
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		(p as any).constraint = (x: number, y: number) => ({
 			x: Math.max(0, Math.min(255, x)),
 			y: Math.max(0, Math.min(255, y))
 		});
@@ -53,7 +59,7 @@
 		green: new MD.Point(128, 128),
 
 		blue: new MD.Point(128, 128)
-	}
+	};
 
 	const BezierPoints = {
 		all1: new MD.Point(64, 192),
@@ -67,11 +73,7 @@
 
 		blue1: new MD.Point(64, 192),
 		blue2: new MD.Point(192, 64)
-	}
-
-
-
-
+	};
 
 	$effect(() => {
 		if (!input) {
@@ -88,7 +90,7 @@
 	});
 
 	let plotItems = $derived.by(() => {
-		return [];
+		return [] as unknown[];
 	});
 
 	/*

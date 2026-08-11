@@ -1,13 +1,16 @@
-<script>
+<script lang="ts">
 	import OperatorBase from './OperatorBase.svelte';
 	import { PixelBuffer } from '$lib/classes/PixelBuffer';
 
-
-	let { input, output = $bindable(), enabled = $bindable(true) } = $props();
-
-	function onReset() {
-		
+	interface Props {
+		input: PixelBuffer | null;
+		output?: PixelBuffer | null;
+		enabled?: boolean;
 	}
+
+	let { input, output = $bindable(null), enabled = $bindable(true) }: Props = $props();
+
+	function onReset() {}
 
 	$effect(() => {
 		if (!input) {
@@ -19,8 +22,6 @@
 			return;
 		}
 		const nextOutput = new PixelBuffer(input.width, input.height);
-
-
 
 		output = nextOutput;
 	});

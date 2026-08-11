@@ -1,13 +1,35 @@
-<script>
-    let { 
-        buffer, 
+<script lang="ts">
+    import type { PixelBuffer } from '$lib/classes/PixelBuffer';
+
+    interface KernelOffset {
+        x: number;
+        y: number;
+    }
+
+    interface Highlight {
+        x: number;
+        y: number;
+        isCenter: boolean;
+        borderColor: string;
+    }
+
+    interface Props {
+        buffer: PixelBuffer | null;
+        centerIndex?: number;
+        kernelOffsets?: KernelOffset[];
+        fixedWidth?: number | null;
+        fixedHeight?: number | null;
+    }
+
+    let {
+        buffer,
         centerIndex = 0,
-        kernelOffsets = [], // [{x:0, y:0}, {x:1, y:0}...]
+        kernelOffsets = [],
         fixedWidth = null,
         fixedHeight = null
-    } = $props();
+    }: Props = $props();
 
-    let canvas = $state();
+    let canvas: HTMLCanvasElement | undefined = $state();
     let showR = $state(true);
     let showG = $state(true);
     let showB = $state(true);
@@ -15,6 +37,8 @@
     $effect(() => {
         if (canvas && buffer) {
             const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
             canvas.width = buffer.width;
             canvas.height = buffer.height;
             const processedData = new Uint8ClampedArray(buffer.data);
@@ -30,14 +54,14 @@
         }
     });
 
-    let highlights = $derived.by(() => {
+    let highlights = $derived.by((): Highlight[] => {
         if (!buffer) return [];
 
         const cx = centerIndex % buffer.width;
         const cy = Math.floor(centerIndex / buffer.width);
 
-        const neighbors = [];
-        let centerPixelData = null;
+        const neighbors: Highlight[] = [];
+        let centerPixelData: Highlight | null = null;
 
         for (const offset of kernelOffsets) {
             const x = cx + offset.x;
@@ -47,15 +71,15 @@
                 continue;
             }
 
-            const isCenter = (offset.x === 0 && offset.y === 0);
-            let borderColor;
+            const isCenter = offset.x === 0 && offset.y === 0;
+            let borderColor: string;
 
             if (isCenter) {
-                borderColor = '#ff0033'; 
+                borderColor = '#ff0033';
                 centerPixelData = { x, y, isCenter, borderColor };
             } else {
                 const pixel = buffer.getPixel(x, y);
-                const brightness = (pixel.r * 0.299) + (pixel.g * 0.587) + (pixel.b * 0.114);
+                const brightness = pixel.r * 0.299 + pixel.g * 0.587 + pixel.b * 0.114;
                 borderColor = brightness > 128 ? 'black' : 'white';
                 neighbors.push({ x, y, isCenter, borderColor });
             }

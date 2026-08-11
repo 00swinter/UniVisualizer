@@ -1,189 +1,247 @@
-<script>
-    import OperatorBase from './OperatorBase.svelte';
-    import { PixelBuffer } from '$lib/classes/PixelBuffer';
-    import InfoContainer from '$lib/components/Info_Container.svelte';
+<script lang="ts">
+	import OperatorBase from './OperatorBase.svelte';
+	import { PixelBuffer } from '$lib/classes/PixelBuffer';
+	import OptionSelect from '../../OptionSelect.svelte';
+	import InfoContainer from '$lib/components/Info_Container.svelte';
 
-    let { input, output = $bindable(), enabled = $bindable(true) } = $props();
+	interface Props {
+		input: PixelBuffer | null;
+		output?: PixelBuffer | null;
+		enabled?: boolean;
+	}
 
-    // Grid Dimensions
-    let cols = $state(3);
-    let rows = $state(3);
-    
-    // The Kernel Values (flat array representing the grid)
-    let kernel = $state(Array(9).fill(0));
-    
-    // Anchor Point [x, y]
-    let anchor = $state({ x: 1, y: 1 });
+	type PresetId =
+		| 'identity'
+		| 'box_blur'
+		| 'gaussian_blur'
+		| 'sharpen'
+		| 'laplace'
+		| 'laplace_diag'
+		| 'sobel_x'
+		| 'sobel_y'
+		| 'emboss'
+		| 'custom';
 
-    // Update kernel array size when dimensions change
-    $effect(() => {
-        const size = cols * rows;
-        if (kernel.length !== size) {
-            kernel = Array(size).fill(0);
-            // Reset anchor to center if it falls out of bounds
-            anchor.x = Math.floor(cols / 2);
-            anchor.y = Math.floor(rows / 2);
-        }
-    });
+	const KERNEL_SIZE = 3;
+	const HALF = 1;
 
-    function onReset() {
-        cols = 3;
-        rows = 3;
-        kernel = Array(9).fill(0);
-        kernel[4] = 1; // Default identity
-        anchor = { x: 1, y: 1 };
-    }
+	const PRESETS: Record<Exclude<PresetId, 'custom'>, number[]> = {
+		identity: [0, 0, 0, 0, 1, 0, 0, 0, 0],
+		box_blur: [1, 1, 1, 1, 1, 1, 1, 1, 1],
+		gaussian_blur: [1, 2, 1, 2, 4, 2, 1, 2, 1],
+		sharpen: [0, -1, 0, -1, 5, -1, 0, -1, 0],
+		laplace: [0, 1, 0, 1, -4, 1, 0, 1, 0],
+		laplace_diag: [1, 1, 1, 1, -8, 1, 1, 1, 1],
+		sobel_x: [-1, 0, 1, -2, 0, 2, -1, 0, 1],
+		sobel_y: [-1, -2, -1, 0, 0, 0, 1, 2, 1],
+		emboss: [-2, -1, 0, -1, 1, 1, 0, 1, 2]
+	};
 
-    $effect(() => {
-        if (!input || !enabled) {
-            output = input;
-            return;
-        }
-        output = new PixelBuffer(input.width, input.height);
-        // Logic for convolution goes here
-    });
+	const PRESET_OPTIONS = [
+		{ id: 'identity', label: 'Identity' },
+		{ id: 'box_blur', label: 'Box Blur' },
+		{ id: 'gaussian_blur', label: 'Gaussian Blur' },
+		{ id: 'sharpen', label: 'Sharpen' },
+		{ id: 'laplace', label: 'Laplace' },
+		{ id: 'laplace_diag', label: 'Laplace (8-neighbor)' },
+		{ id: 'sobel_x', label: 'Sobel X' },
+		{ id: 'sobel_y', label: 'Sobel Y' },
+		{ id: 'emboss', label: 'Emboss' },
+		{ id: 'custom', label: 'Custom' }
+	];
+
+	const REPEAT_OPTIONS = [
+		{ id: '1', label: '1×' },
+		{ id: '2', label: '2×' },
+		{ id: '3', label: '3×' }
+	];
+
+	let { input, output = $bindable(null), enabled = $bindable(true) }: Props = $props();
+
+	let kernel = $state([...PRESETS.identity] as number[]);
+	let preset: PresetId = $state('identity');
+	let repeats = $state('1');
+
+	function applyPreset(id: PresetId) {
+		if (id === 'custom') return;
+		kernel = [...PRESETS[id]];
+	}
+
+	function markCustom() {
+		if (preset !== 'custom') preset = 'custom';
+	}
+
+	function onReset() {
+		preset = 'identity';
+		repeats = '1';
+		applyPreset('identity');
+	}
+
+	function onPresetSelect(id: string) {
+		preset = id as PresetId;
+		applyPreset(preset);
+	}
+
+	function clampByte(v: number): number {
+		return v < 0 ? 0 : v > 255 ? 255 : v;
+	}
+
+	function sample(src: PixelBuffer, x: number, y: number) {
+		const cx = x < 0 ? 0 : x >= src.width ? src.width - 1 : x;
+		const cy = y < 0 ? 0 : y >= src.height ? src.height - 1 : y;
+		return src.getPixel(cx, cy);
+	}
+
+	function convolveOnce(src: PixelBuffer, k: number[]): PixelBuffer {
+		const kernelSum = k.reduce((sum, w) => sum + w, 0);
+		const normalize = Math.abs(kernelSum) > 1e-6;
+		const next = new PixelBuffer(src.width, src.height);
+
+		for (let y = 0; y < src.height; y++) {
+			for (let x = 0; x < src.width; x++) {
+				// Premultiplied RGB + alpha so transparent borders soften correctly
+				let r = 0;
+				let g = 0;
+				let b = 0;
+				let a = 0;
+
+				for (let ky = 0; ky < KERNEL_SIZE; ky++) {
+					for (let kx = 0; kx < KERNEL_SIZE; kx++) {
+						const weight = k[ky * KERNEL_SIZE + kx];
+						const px = sample(src, x + kx - HALF, y + ky - HALF);
+						const alpha = px.a / 255;
+						r += px.r * alpha * weight;
+						g += px.g * alpha * weight;
+						b += px.b * alpha * weight;
+						a += px.a * weight;
+					}
+				}
+
+				if (normalize) {
+					r /= kernelSum;
+					g /= kernelSum;
+					b /= kernelSum;
+					a /= kernelSum;
+				} else {
+					// Zero-sum kernels (Sobel/Laplace): abs so edges stay visible
+					r = Math.abs(r);
+					g = Math.abs(g);
+					b = Math.abs(b);
+					a = Math.abs(a);
+				}
+
+				const outA = clampByte(a);
+				if (outA > 0) {
+					const inv = 255 / outA;
+					r *= inv;
+					g *= inv;
+					b *= inv;
+				} else {
+					r = 0;
+					g = 0;
+					b = 0;
+				}
+
+				next.setPixel(x, y, clampByte(r), clampByte(g), clampByte(b), outA);
+			}
+		}
+
+		return next;
+	}
+
+	$effect(() => {
+		if (!input) {
+			output = null;
+			return;
+		}
+		if (!enabled) {
+			output = input;
+			return;
+		}
+
+		const k = kernel;
+		const times = Number(repeats) || 1;
+		let current: PixelBuffer = input;
+
+		for (let i = 0; i < times; i++) {
+			current = convolveOnce(current, k);
+		}
+
+		output = current;
+	});
 </script>
 
 <OperatorBase title="Custom Kernel" icon="grid_on" bind:enabled {onReset}>
-    <div class="kernel-ui">
-        <div class="settings-bar">
-            <div class="input-group">
-                <label>Width</label>
-                <input type="number" min="1" max="5" bind:value={cols} />
-            </div>
-            <div class="input-group">
-                <label>Height</label>
-                <input type="number" min="1" max="5" bind:value={rows} />
-            </div>
-            <div class="anchor-info">
-                Anchor: <span>{anchor.x}, {anchor.y}</span>
-            </div>
-        </div>
+	<div class="kernel-ui">
+		<OptionSelect label="Repeat" bind:value={repeats} options={REPEAT_OPTIONS} />
 
-        <div 
-            class="kernel-grid" 
-            style="grid-template-columns: repeat({cols}, 1fr);"
-        >
-            {#each Array(rows) as _, y}
-                {#each Array(cols) as __, x}
-                    {@const index = y * cols + x}
-                    <div class="cell-wrapper" class:is-anchor={anchor.x === x && anchor.y === y}>
-                        <input 
-                            type="number" 
-                            step="0.1"
-                            bind:value={kernel[index]} 
-                        />
-                        <button 
-                            class="anchor-btn" 
-                            onclick={() => { anchor = { x, y }; }}
-                            title="Set as Anchor"
-                        ></button>
-                    </div>
-                {/each}
-            {/each}
-        </div>
-    </div>
+		<div class="kernel-grid">
+			{#each kernel as _, index (index)}
+				<div class="cell-wrapper">
+					<input
+						type="number"
+						step="0.1"
+						bind:value={kernel[index]}
+						oninput={markCustom}
+					/>
+				</div>
+			{/each}
+		</div>
 
-    <InfoContainer title="Instructions">
-        <p>Set the <strong>weights</strong> in each field. Click the small dot in the corner of a cell to set the <strong>Anchor Point</strong>.</p>
-    </InfoContainer>
+		<OptionSelect
+			label="Preset"
+			bind:value={() => preset, onPresetSelect}
+			options={PRESET_OPTIONS}
+		/>
+	</div>
+
+	<InfoContainer title="Instructions">
+		<p>
+			Pick a <strong>preset</strong> or edit the 3×3 kernel weights directly. The default is an
+			identity kernel (all zeros with <strong>1</strong> in the center). Use <strong>Repeat</strong>
+			to apply the same kernel multiple times in a row.
+		</p>
+	</InfoContainer>
 </OperatorBase>
 
 <style>
-    .kernel-ui {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        background: #1a1a1a;
-        padding: 16px;
-        border-radius: 8px;
-    }
+	.kernel-ui {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		background: #1a1a1a;
+		padding: 16px;
+		border-radius: 8px;
+	}
 
-    .settings-bar {
-        display: flex;
-        gap: 15px;
-        align-items: center;
-        border-bottom: 1px solid #333;
-        padding-bottom: 10px;
-    }
+	.kernel-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 4px;
+		justify-content: center;
+	}
 
-    .input-group {
-        display: flex;
-        flex-direction: column;
-        font-size: 0.7rem;
-        color: #888;
-    }
+	.cell-wrapper {
+		position: relative;
+		background: #222;
+		border: 2px solid transparent;
+		border-radius: 4px;
+		transition: all 0.2s;
+	}
 
-    .input-group input {
-        background: #222;
-        border: 1px solid #444;
-        color: white;
-        width: 50px;
-        border-radius: 4px;
-        padding: 2px 5px;
-    }
+	.cell-wrapper input {
+		width: 50px;
+		height: 40px;
+		background: transparent;
+		border: none;
+		color: white;
+		text-align: center;
+		font-family: monospace;
+	}
 
-    .anchor-info {
-        font-size: 0.75rem;
-        color: #aaa;
-        margin-left: auto;
-    }
-
-    .kernel-grid {
-        display: grid;
-        gap: 4px;
-        justify-content: center;
-    }
-
-    .cell-wrapper {
-        position: relative;
-        background: #222;
-        border: 2px solid transparent;
-        border-radius: 4px;
-        transition: all 0.2s;
-    }
-
-    .cell-wrapper.is-anchor {
-        border-color: #ff3e00;
-        background: #2a1a15;
-    }
-
-    .cell-wrapper input {
-        width: 50px;
-        height: 40px;
-        background: transparent;
-        border: none;
-        color: white;
-        text-align: center;
-        font-family: monospace;
-    }
-
-    /* Hide arrows in number input */
-    input::-webkit-outer-spin-button,
-    input::-webkit-inner-spin-button {
-        appearance: none;
-        margin: 0;
-    }
-
-    .anchor-btn {
-        position: absolute;
-        top: 2px;
-        right: 2px;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #444;
-        border: none;
-        cursor: pointer;
-        padding: 0;
-    }
-
-    .is-anchor .anchor-btn {
-        background: #ff3e00;
-        box-shadow: 0 0 5px #ff3e00;
-    }
-
-    .anchor-btn:hover {
-        background: #888;
-    }
+	input::-webkit-outer-spin-button,
+	input::-webkit-inner-spin-button {
+		appearance: none;
+		margin: 0;
+	}
 </style>

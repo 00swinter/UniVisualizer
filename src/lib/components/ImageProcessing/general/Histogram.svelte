@@ -1,11 +1,17 @@
-<script>
-    import { PixelBuffer } from '$lib/classes/PixelBuffer';
+<script lang="ts">
+    import type { PixelBuffer } from '$lib/classes/PixelBuffer';
 
-    let { 
-        input, 
-        width = "100%", 
-        height = "150px" 
-    } = $props();
+    interface Props {
+        input: PixelBuffer | null;
+        width?: string;
+        height?: string;
+    }
+
+    let {
+        input,
+        width = '100%',
+        height = '150px'
+    }: Props = $props();
 
     let showR = $state(true);
     let showG = $state(true);
@@ -18,7 +24,9 @@
 
     $effect(() => {
         if (!input) {
-            histR.fill(0); histG.fill(0); histB.fill(0);
+            histR.fill(0);
+            histG.fill(0);
+            histB.fill(0);
             return;
         }
 
@@ -26,7 +34,7 @@
         const r = new Uint32Array(256);
         const g = new Uint32Array(256);
         const b = new Uint32Array(256);
-        
+
         for (let i = 0; i < src.length; i += 4) {
             r[src[i]]++;
             g[src[i + 1]]++;
@@ -34,7 +42,7 @@
         }
 
         let max = 0;
-        for(let i=0; i<256; i++) {
+        for (let i = 0; i < 256; i++) {
             if (r[i] > max) max = r[i];
             if (g[i] > max) max = g[i];
             if (b[i] > max) max = b[i];
@@ -43,20 +51,20 @@
         histR = r;
         histG = g;
         histB = b;
-        
+
         maxCount = max > 0 ? max : 1;
     });
 
-    const createBarPath = (data, max) => {
+    const createBarPath = (data: Uint32Array, max: number): string => {
         let d = `M 0,100 `;
-        
+
         for (let i = 0; i < 256; i++) {
             const x1 = (i / 256) * 100;
             const x2 = ((i + 1) / 256) * 100;
-            
+
             const val = data[i];
-            const height = (val / max) * 100;
-            const y = 100 - height;
+            const barHeight = (val / max) * 100;
+            const y = 100 - barHeight;
 
             d += `L ${x1.toFixed(2)},${y.toFixed(2)} L ${x2.toFixed(2)},${y.toFixed(2)} `;
         }

@@ -1,14 +1,27 @@
-<script>
-    let { 
-        type = "none",       // Options: 'range', 'number', 'boolean', 'none', display
-        label = "sample text", 
-        value = $bindable(),
-        unit = "",  //  ° π m 
-        min = 0, 
-        max = 10, 
-        step = 1, 
-        color = "white" 
-    } = $props();
+<script lang="ts">
+	type ParamType = 'range' | 'number' | 'boolean' | 'none' | 'display';
+
+	interface Props {
+		type?: ParamType;
+		label?: string;
+		value?: number | boolean;
+		unit?: string;
+		min?: number;
+		max?: number;
+		step?: number;
+		color?: string;
+	}
+
+	let {
+		type = 'none',
+		label = 'sample text',
+		value = $bindable(),
+		unit = '',
+		min = 0,
+		max = 10,
+		step = 1,
+		color = 'white'
+	}: Props = $props();
 </script>
 
 <div class="param-container" style="--accent-color: {color}">
@@ -16,7 +29,7 @@
     <div class="header">
         <span class="label">{label}</span>
         
-        {#if type === 'range' || type === 'display'}
+        {#if (type === 'range' || type === 'display') && typeof value === 'number'}
             <span class="value-readout">{Math.round(value * 100) / 100}{unit}</span>
         {/if}
     </div>
@@ -30,8 +43,8 @@
     {:else if type === 'boolean'}
         <button 
             class="toggle-btn" 
-            class:active={value} 
-            onclick={() => value = !value}>
+            class:active={!!value} 
+            onclick={() => (value = !value)}>
             {value ? "ON" : "OFF"}
         </button>
     {/if}

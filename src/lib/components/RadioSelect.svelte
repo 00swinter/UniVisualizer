@@ -1,21 +1,27 @@
-<script>
-	import { Colors } from "$lib/classes/Colors";
+<script lang="ts">
+	import { Colors } from '$lib/classes/Colors';
 
-    /**
-     * @typedef {Object} Option
-     * @property {string} label - Text to display
-     * @property {any} value - The actual value to bind
-     * @property {string} [color] - Optional override color for selected state (HEX format)
-     */
+	interface Option {
+		label: string;
+		value: string;
+		color?: string;
+	}
 
-    /** @type {{ options: Option[], value: any, color?: string }} */
-    let { 
-        options, 
-        value = $bindable(), 
-        borderColor = Colors.blue_sky_dark(0.8),
-        textColor = Colors.gray_white_dark(),
-        width="100%"
-    } = $props();
+	interface Props {
+		options: Option[];
+		value?: string;
+		borderColor?: string;
+		textColor?: string;
+		width?: string;
+	}
+
+	let {
+		options,
+		value = $bindable(),
+		borderColor = Colors.blue_sky_dark(0.8),
+		textColor = Colors.gray_white_dark(),
+		width = '100%'
+	}: Props = $props();
 </script>
 
 <div class="segmented-control" style="--accent-color: {borderColor}; --text-color: {textColor}; width: {width};">

@@ -1,17 +1,9 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-	import PixelBufferDisplay from '$lib/components/ImageProcessing/general/PixelBufferDisplay.svelte';
-	import { PixelBuffer } from '$lib/classes/PixelBuffer';
+	import type { Component } from 'svelte';
+	import type { PixelBuffer } from '$lib/classes/PixelBuffer';
 	import PixelBufferLoader from '$lib/components/ImageProcessing/general/PixelBufferLoader.svelte';
 	import RowProfileViewer from '$lib/components/ImageProcessing/general/RowProfileViewer.svelte';
-
-	// Operator Imports
-	import GrayscaleOperator from '$lib/components/ImageProcessing/ImageProcessingOperators/Grayscale_Operator.svelte';
-	import ConvolutionOperator from '$lib/components/ImageProcessing/ImageProcessingOperators/Convolution_Operator.svelte';
-	import KontrastOperator from '$lib/components/ImageProcessing/ImageProcessingOperators/Contrast_Operator.svelte';
 	import Histogram from '$lib/components/ImageProcessing/general/Histogram.svelte';
-
-	// NEW OPERATORS
 
 	import Grayscale_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Grayscale_Operator.svelte';
 	import Convolution_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Convolution_Operator.svelte';
@@ -19,60 +11,69 @@
 
 	// --- 1. CONFIGURATION ---
 
+	interface OperatorProps {
+		input: PixelBuffer | null;
+		output?: PixelBuffer | null;
+		enabled?: boolean;
+	}
+
+	interface OperatorDef {
+		type: string;
+		label: string;
+		component: Component<OperatorProps>;
+	}
+
+	interface PipelineStep {
+		id: string;
+		type: string;
+		label: string;
+		output: PixelBuffer | null;
+	}
+
 	// The registry defines which operators are allowed and their labels
-	const operatorRegistry = [
+	const operatorRegistry: OperatorDef[] = [
 		{ type: 'grayscale', label: 'Grayscale', component: Grayscale_Operator },
 		{ type: 'convolution', label: 'Convolution', component: Convolution_Operator },
-		{ type: 'contrast', label: 'Contrast', component: Contrast_Operator },
-		// { type: 'contrast', label: 'Contrast', component: KontrastOperator },
-		// { type: 'rotate', label: 'Rotate', component: RotateOperator },
-		// { type: 'grayscale', label: 'Grayscale', component: GrayscaleOperator },
-		// { type: 'convolution', label: 'Convolution', component: ConvolutionOperator },
-		// { type: 'histoEq', label: 'Histogram Equalization', component: HistogramEqualizationOperator },
-		// { type: 'histoNorm', label: 'Histogram Normalisation', component: HistogramNormalisationOperator },
-		// { type: 'houghline', label: 'Hough Line Detection', component: HoughLineOperator },
-		// { type: 'morphology', label: 'Morphology', component: MorphologyOperator },
-		// { type: 'threshold', label: 'Threshold/Binarize', component: ThresholdOperator },
-		// { type: 'sobel', label: 'sobel_test', component: Sobel },
+		{ type: 'contrast', label: 'Contrast', component: Contrast_Operator }
 	];
 
 	// --- 2. STATE ---
 
-	let originalImage = $state(null);
+	let originalImage: PixelBuffer | null = $state(null);
 
 	// The dynamic pipeline. Each item needs a unique ID, type, and an output buffer container.
-	let pipeline = $state([]);
+	let pipeline: PipelineStep[] = $state([]);
 
 	let selectedOperatorToAdd = $state(operatorRegistry[0].type);
 
 	// --- 3. ACTIONS ---
 
-	function addStep(type, index = null) {
-       // 1. Find the full definition from your registry to get the label
-       const opDef = operatorRegistry.find(op => op.type === type);
+	function addStep(type: string, index: number | null = null) {
+		// 1. Find the full definition from your registry to get the label
+		const opDef = operatorRegistry.find((op) => op.type === type);
 
-       const newStep = {
-           id: crypto.randomUUID(),
-           type: type,
-           // 2. Add the label here so step.label works in the HTML
-           label: opDef ? opDef.label : 'Unknown Step', 
-           output: null 
-       };
+		const newStep: PipelineStep = {
+			id: crypto.randomUUID(),
+			type: type,
+			// 2. Add the label here so step.label works in the HTML
+			label: opDef ? opDef.label : 'Unknown Step',
+			output: null
+		};
 
-       if (index === null) {
-           pipeline = [...pipeline, newStep];
-       } else {
-           const newPipeline = [...pipeline];
-           newPipeline.splice(index, 0, newStep);
-           pipeline = newPipeline;
-       }
-   }
+		if (index === null) {
+			pipeline = [...pipeline, newStep];
+		} else {
+			const newPipeline = [...pipeline];
+			newPipeline.splice(index, 0, newStep);
+			pipeline = newPipeline;
+		}
+	}
 
-	function removeStep(index) {
+	function removeStep(index: number) {
 		pipeline = pipeline.filter((_, i) => i !== index);
 	}
 
-	function moveStep(index, direction) {
+	function moveStep(index: number, direction: number) {
 		if (direction === -1 && index === 0) return;
 		if (direction === 1 && index === pipeline.length - 1) return;
 
@@ -85,13 +86,13 @@
 
 	// Helper to get input buffer based on index
 	// If index 0, input is originalImage. Otherwise, input is previous step's output.
-	function getInputBuffer(index) {
+	function getInputBuffer(index: number): PixelBuffer | null {
 		if (index === 0) return originalImage;
 		return pipeline[index - 1].output;
 	}
 
 	// Helper to find component class from registry
-	function getComponentType(typeStr) {
+	function getComponentType(typeStr: string): Component<OperatorProps> | undefined {
 		return operatorRegistry.find((op) => op.type === typeStr)?.component;
 	}
 </script>
@@ -120,9 +121,8 @@
 		</div>
 
 		{#each pipeline as step, i (step.id)}
-        <h1>{step.label}</h1>
+			<h1>{step.label}</h1>
 			<div class="step-card">
-                
 				<div class="step-badge">
 					{i + 2}
 				</div>
@@ -141,10 +141,7 @@
 					<div class="operator-wrapper">
 						{#if getComponentType(step.type)}
 							{@const OperatorComponent = getComponentType(step.type)}
-							<OperatorComponent
-								input={getInputBuffer(i)}
-								bind:output={step.output}
-							/>
+							<OperatorComponent input={getInputBuffer(i)} bind:output={step.output} />
 						{/if}
 					</div>
 					<Histogram input={step.output} />

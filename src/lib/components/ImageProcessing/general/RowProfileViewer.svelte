@@ -1,12 +1,21 @@
-<script>
-    import PixelBufferDisplay from '$lib/components/PixelBufferDisplay.svelte';
+<script lang="ts">
+    import type { PixelBuffer } from '$lib/classes/PixelBuffer';
+    import PixelBufferDisplay from './PixelBufferDisplay.svelte';
 
-    let { buffer, scale = 1 } = $props();
+    interface Props {
+        buffer: PixelBuffer | null;
+        scale?: number;
+    }
+
+    type Channel = 'r' | 'g' | 'b';
+    type RowPixel = { r: number; g: number; b: number };
+
+    let { buffer, scale = 1 }: Props = $props();
 
     let selectionPct = $state(0.5);
-    
-    let chartCanvas  = $state(0);
-    let displayHeight = $state(200); 
+
+    let chartCanvas: HTMLCanvasElement | undefined = $state();
+    let displayHeight = $state(200);
 
     let showR = $state(true);
     let showG = $state(true);
@@ -23,17 +32,17 @@
         return ((rowIndex + 0.5) / buffer.height) * 100;
     });
 
-    let rowData = $derived.by(() => {
+    let rowData = $derived.by((): RowPixel[] | null => {
         if (!buffer) return null;
         const width = buffer.width;
         const start = rowIndex * width * 4;
-        const end = start + (width * 4);
+        const end = start + width * 4;
         if (end > buffer.data.length) return [];
 
         const rowSlice = new Uint8ClampedArray(buffer.data.slice(start, end));
-        const pixels = [];
+        const pixels: RowPixel[] = [];
         for (let i = 0; i < rowSlice.length; i += 4) {
-            pixels.push({ r: rowSlice[i], g: rowSlice[i+1], b: rowSlice[i+2] });
+            pixels.push({ r: rowSlice[i], g: rowSlice[i + 1], b: rowSlice[i + 2] });
         }
         return pixels;
     });
@@ -41,6 +50,8 @@
     $effect(() => {
         if (chartCanvas && rowData) {
             const ctx = chartCanvas.getContext('2d');
+            if (!ctx) return;
+
             const w = chartCanvas.width;
             const h = chartCanvas.height;
 
@@ -50,22 +61,25 @@
             // Grid
             ctx.strokeStyle = '#333';
             ctx.lineWidth = 1;
-            [0, 0.5, 1].forEach(p => {
-                const yPos = Math.floor(h - (h * p)) - 0.5;
-                ctx.beginPath(); ctx.moveTo(0, yPos); ctx.lineTo(w, yPos); ctx.stroke();
+            [0, 0.5, 1].forEach((p) => {
+                const yPos = Math.floor(h - h * p) - 0.5;
+                ctx.beginPath();
+                ctx.moveTo(0, yPos);
+                ctx.lineTo(w, yPos);
+                ctx.stroke();
             });
 
             if (rowData.length === 0) return;
 
-            const getY = (val) => h - (val / 255 * h);
-            const getX = (index) => (index / (rowData.length - 1)) * w;
+            const getY = (val: number) => h - (val / 255) * h;
+            const getX = (index: number) => (index / (rowData.length - 1)) * w;
 
-            const drawGraphLine = (color, channel) => {
+            const drawGraphLine = (color: string, channel: Channel) => {
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(getX(0), getY(rowData[0][channel]));
-                for(let i = 1; i < rowData.length; i++) {
+                for (let i = 1; i < rowData.length; i++) {
                     ctx.lineTo(getX(i), getY(rowData[i][channel]));
                 }
                 ctx.stroke();
@@ -129,11 +143,18 @@
                 </div>
             </div>
             
-            <canvas 
-                bind:this={chartCanvas}
-                width={600}
-                height={150}
-            ></canvas>
+            <div class="chart-body">
+                <div class="y-axis" aria-hidden="true">
+                    <span>255</span>
+                    <span>128</span>
+                    <span>0</span>
+                </div>
+                <canvas 
+                    bind:this={chartCanvas}
+                    width={600}
+                    height={150}
+                ></canvas>
+            </div>
         </div>
 
     {:else}
@@ -219,6 +240,26 @@
         color: #888;
     }
 
+    .chart-body {
+        display: flex;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    .y-axis {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: flex-end;
+        font-size: 0.7rem;
+        color: #888;
+        line-height: 1;
+        padding: 1px 0;
+        flex-shrink: 0;
+        min-width: 3ch;
+        user-select: none;
+    }
+
     .toggles {
         display: flex;
         gap: 4px;
@@ -262,6 +303,8 @@
         display: block;
         width: 100%;
         border: 1px solid #333;
+        flex: 1;
+        min-width: 0;
     }
 
     .empty-msg { padding: 20px; color: #666; text-align: center; }

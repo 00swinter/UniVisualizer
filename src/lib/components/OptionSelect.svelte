@@ -1,10 +1,22 @@
-<script>
-    let { 
-        label, 
-        value = $bindable(), 
-        options = [], // Expects [{id, label}, ...]
-        id = Math.random().toString(36).substring(7) 
-    } = $props();
+<script lang="ts">
+	interface Option {
+		id?: string;
+		label?: string;
+	}
+
+	interface Props {
+		label?: string;
+		value?: string;
+		options?: (Option | string)[];
+		id?: string;
+	}
+
+	let {
+		label,
+		value = $bindable(),
+		options = [],
+		id = Math.random().toString(36).substring(7)
+	}: Props = $props();
 </script>
 
 <div class="option_group">
@@ -13,7 +25,7 @@
     {/if}
     <select {id} bind:value class="custom_select">
         {#each options as opt}
-            <option value={opt.id ?? opt}>{opt.label ?? opt}</option>
+            <option value={typeof opt === 'string' ? opt : (opt.id ?? '')}>{typeof opt === 'string' ? opt : (opt.label ?? opt.id ?? '')}</option>
         {/each}
     </select>
 </div>

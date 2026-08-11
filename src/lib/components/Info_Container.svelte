@@ -1,19 +1,23 @@
-<script>
-    let { 
-        icon = 'help_outline', 
-        heading = 'Information', 
-        children 
-    } = $props();
+<script lang="ts">
+	import type { Snippet } from 'svelte';
+
+	interface Props {
+		icon?: string;
+		title?: string;
+		children?: Snippet;
+	}
+
+	let { icon = 'help_outline', title = 'Information', children }: Props = $props();
 </script>
 
 <div class="info_block">
-    <div class="info_header">
-        <span class="material-icons-round">{icon}</span>
-        <span class="heading_text">{heading}</span>
-    </div>
-    <div class="info_body">
-        {@render children?.()}
-    </div>
+	<div class="info_header">
+		<span class="material-icons-round">{icon}</span>
+		<span class="heading_text">{title}</span>
+	</div>
+	<div class="info_body">
+		{@render children?.()}
+	</div>
 </div>
 
 <style>

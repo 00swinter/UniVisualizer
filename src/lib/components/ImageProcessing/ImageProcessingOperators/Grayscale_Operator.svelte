@@ -1,17 +1,31 @@
-<script>
+<script lang="ts">
 	import OperatorBase from './OperatorBase.svelte';
 	import { PixelBuffer } from '$lib/classes/PixelBuffer';
-	import { Colors } from '$lib/classes/Colors';
 	import OptionSelect from '../../OptionSelect.svelte';
 	import InfoContainer from '$lib/components/Info_Container.svelte';
 
-	let { input, output = $bindable(), enabled = $bindable(true) } = $props();
+	type GrayscaleMode =
+		| 'luminance_rec601'
+		| 'luminance_rec709'
+		| 'average'
+		| 'desaturation'
+		| 'red_channel'
+		| 'green_channel'
+		| 'blue_channel';
+
+	interface Props {
+		input: PixelBuffer | null;
+		output?: PixelBuffer | null;
+		enabled?: boolean;
+	}
+
+	let { input, output = $bindable(null), enabled = $bindable(true) }: Props = $props();
 
 	function onReset() {
 		mode = 'luminance_rec709';
 	}
 
-	let mode = $state('luminance_rec709');
+	let mode: GrayscaleMode = $state('luminance_rec709');
 
 	$effect(() => {
 		if (!input) {

@@ -1,17 +1,25 @@
-<script>
-    let {
-        title = 'Template Operator',
-        icon = 'build',
-        enabled = $bindable(true),
-        onReset,
-        children,
-    } = $props();
+<script lang="ts">
+	import type { Snippet } from 'svelte';
 
-    
+	interface Props {
+		title?: string;
+		icon?: string;
+		enabled?: boolean;
+		onReset?: () => void;
+		children?: Snippet;
+	}
 
-    function handleReset() {
-        if (onReset) onReset();
-    }
+	let {
+		title = 'Template Operator',
+		icon = 'build',
+		enabled = $bindable(true),
+		onReset,
+		children
+	}: Props = $props();
+
+	function handleReset() {
+		if (onReset) onReset();
+	}
 </script>
 
 <div class="operator_container" class:bypassed={!enabled}>

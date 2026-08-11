@@ -1,11 +1,19 @@
-<script>
-  let { 
-    buffer, 
-    fixedHeight = null, 
-    fixedWidth = null 
-  } = $props();
+<script lang="ts">
+  import type { PixelBuffer } from '$lib/classes/PixelBuffer';
 
-  let canvas = $state();
+  interface Props {
+    buffer: PixelBuffer | null;
+    fixedHeight?: number | null;
+    fixedWidth?: number | null;
+  }
+
+  let {
+    buffer,
+    fixedHeight = null,
+    fixedWidth = null
+  }: Props = $props();
+
+  let canvas: HTMLCanvasElement | undefined = $state();
 
   let showR = $state(true);
   let showG = $state(true);
@@ -14,6 +22,8 @@
   $effect(() => {
     if (canvas && buffer) {
       const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
       canvas.width = buffer.width;
       canvas.height = buffer.height;
 

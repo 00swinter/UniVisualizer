@@ -1,7 +1,7 @@
 <script lang="ts">
     import MathPlot2D from "$lib/components/MathPlot2D.svelte";
     import * as MD from "$lib/classes/MathPlot2D.svelte";
-    import * as Colors from "$lib/classes/Colors";
+    import { Colors } from "$lib/classes/Colors";
 
     const xMin = -10;
     const xMax = 10;
@@ -10,7 +10,7 @@
 
     const p1 = new MD.Point(1.2, 0.5);
     p1.isDraggable = true;
-    p1.color = Colors.red;
+    p1.color = Colors.red();
 
     const p2 = new MD.Point(-0.5, 1.2);
     p2.isDraggable = true;
@@ -85,19 +85,19 @@
         const bx1 = 2 * p1.x + 1 * p2.x;
         const by1 = 2 * p1.y + 1 * p2.y;
         const bp1 = new MD.Point(bx1, by1);
-        bp1.color = Colors.orange;
+        bp1.color = Colors.orange();
         bp1.isDraggable = false;
 
         const bx2 = 3 * p1.x + 2 * p2.x;
         const by2 = 3 * p1.y + 2 * p2.y;
         const bp2 = new MD.Point(bx2, by2);
-        bp2.color = Colors.orange;
+        bp2.color = Colors.orange();
         bp2.isDraggable = false;
 
         const bline1 = new MD.Line({ x: 0, y: 0 }, bp1);
-        bline1.color = Colors.orange;
+        bline1.color = Colors.orange();
         const bline2 = new MD.Line({ x: 0, y: 0 }, bp2);
-        bline2.color = Colors.orange;
+        bline2.color = Colors.orange();
 
         return [bline1, bline2, bp1, bp2];
     });
