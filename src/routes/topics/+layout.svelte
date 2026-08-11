@@ -16,16 +16,17 @@
 		min-height: 100vh;
 		display: flex;
 		justify-content: center;
-		padding: 3rem 1rem;
+		padding: 1.5rem 1rem 3rem;
 	}
 	.back {
 		display: inline-block;
 		color: var(--color-text-muted);
 		text-decoration: none;
-		margin-bottom: 1.2rem;
+		margin: 1rem 1rem 0;
 	}
 
 	.topics-content {
-		width: min(100%, 70rem);
+		width: 100%;
+		max-width: none;
 	}
 </style>

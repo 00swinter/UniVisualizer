@@ -1,446 +1,638 @@
 <script lang="ts">
-	import type { PixelBuffer } from '$lib/classes/PixelBuffer';
-	import PixelBufferDisplay from './PixelBufferDisplay.svelte';
+  import type { PixelBuffer } from "$lib/classes/PixelBuffer";
+  import PixelBufferDisplay from "./PixelBufferDisplay.svelte";
 
-	interface Props {
-		buffer: PixelBuffer | null;
-		scale?: number;
-	}
+  interface Props {
+    buffer: PixelBuffer | null;
+    scale?: number;
+    imageWidth?: number;
+    maxImageHeight?: number;
+  }
 
-	type Channel = 'r' | 'g' | 'b' | 'a';
-	type RowPixel = { r: number; g: number; b: number; a: number };
+  type Channel = "r" | "g" | "b" | "a";
+  type RowPixel = { r: number; g: number; b: number; a: number };
 
-	let { buffer, scale = 1 }: Props = $props();
+  const MAX_DISPLAY_WIDTH = 560;
 
-	let gradientOpen = $state(false);
-	let selectionPct = $state(0.5);
+  let { buffer, scale = 1, imageWidth, maxImageHeight = 380 }: Props = $props();
 
-	let chartCanvas: HTMLCanvasElement | undefined = $state();
-	let displayHeight = $state(200);
+  let gradientOpen = $state(false);
+  let selectionPct = $state(0.5);
 
-	let showR = $state(true);
-	let showG = $state(true);
-	let showB = $state(true);
-	let showA = $state(false);
+  let chartCanvas: HTMLCanvasElement | undefined = $state();
+  let displayHeight = $state(200);
 
-	let rowIndex = $derived.by(() => {
-		if (!buffer || buffer.height <= 1) return 0;
-		const row = Math.floor(selectionPct * (buffer.height - 1));
-		return Math.max(0, Math.min(row, buffer.height - 1));
-	});
+  /** Outer image-frame height (clientHeight + 1px borders), used to size/align the row slider. */
+  let imageFrameHeight = $derived(Math.max(0, displayHeight + 2));
 
-	let scanLineTopPct = $derived.by(() => {
-		if (!buffer || buffer.height === 0) return 50;
-		return ((rowIndex + 0.5) / buffer.height) * 100;
-	});
+  let showR = $state(true);
+  let showG = $state(true);
+  let showB = $state(true);
+  let showA = $state(false);
 
-	let rowData = $derived.by((): RowPixel[] | null => {
-		if (!buffer || !gradientOpen) return null;
-		const width = buffer.width;
-		const start = rowIndex * width * 4;
-		const end = start + width * 4;
-		if (end > buffer.data.length) return [];
+  let chartShowR = $state(true);
+  let chartShowG = $state(true);
+  let chartShowB = $state(true);
+  let chartShowA = $state(false);
 
-		const rowSlice = new Uint8ClampedArray(buffer.data.slice(start, end));
-		const pixels: RowPixel[] = [];
-		for (let i = 0; i < rowSlice.length; i += 4) {
-			pixels.push({
-				r: rowSlice[i],
-				g: rowSlice[i + 1],
-				b: rowSlice[i + 2],
-				a: rowSlice[i + 3]
-			});
-		}
-		return pixels;
-	});
+  let resolvedWidth = $derived.by(() => {
+    if (imageWidth != null) return imageWidth;
+    if (!buffer || buffer.width <= 0) return 280;
+    const byHeight = (buffer.width / buffer.height) * maxImageHeight;
+    return Math.max(160, Math.floor(Math.min(byHeight, MAX_DISPLAY_WIDTH)));
+  });
 
-	$effect(() => {
-		if (chartCanvas && rowData) {
-			const ctx = chartCanvas.getContext('2d');
-			if (!ctx) return;
+  let rowIndex = $derived.by(() => {
+    if (!buffer || buffer.height <= 1) return 0;
+    const row = Math.floor(selectionPct * (buffer.height - 1));
+    return Math.max(0, Math.min(row, buffer.height - 1));
+  });
 
-			const w = chartCanvas.width;
-			const h = chartCanvas.height;
+  let scanLineTopPct = $derived.by(() => {
+    if (!buffer || buffer.height === 0) return 50;
+    return ((rowIndex + 0.5) / buffer.height) * 100;
+  });
 
-			ctx.fillStyle = '#181818';
-			ctx.fillRect(0, 0, w, h);
+  let rowData = $derived.by((): RowPixel[] | null => {
+    if (!buffer || !gradientOpen) return null;
+    const width = buffer.width;
+    const start = rowIndex * width * 4;
+    const end = start + width * 4;
+    if (end > buffer.data.length) return [];
 
-			ctx.strokeStyle = '#333';
-			ctx.lineWidth = 1;
-			[0, 0.5, 1].forEach((p) => {
-				const yPos = Math.floor(h - h * p) - 0.5;
-				ctx.beginPath();
-				ctx.moveTo(0, yPos);
-				ctx.lineTo(w, yPos);
-				ctx.stroke();
-			});
+    const rowSlice = new Uint8ClampedArray(buffer.data.slice(start, end));
+    const pixels: RowPixel[] = [];
+    for (let i = 0; i < rowSlice.length; i += 4) {
+      pixels.push({
+        r: rowSlice[i],
+        g: rowSlice[i + 1],
+        b: rowSlice[i + 2],
+        a: rowSlice[i + 3],
+      });
+    }
+    return pixels;
+  });
 
-			if (rowData.length === 0) return;
+  $effect(() => {
+    if (chartCanvas && rowData) {
+      const ctx = chartCanvas.getContext("2d");
+      if (!ctx) return;
 
-			const getY = (val: number) => h - (val / 255) * h;
-			const getX = (index: number) => (index / (rowData.length - 1)) * w;
+      const w = chartCanvas.width;
+      const h = chartCanvas.height;
 
-			const drawGraphLine = (color: string, channel: Channel) => {
-				ctx.strokeStyle = color;
-				ctx.lineWidth = 2;
-				ctx.beginPath();
-				ctx.moveTo(getX(0), getY(rowData[0][channel]));
-				for (let i = 1; i < rowData.length; i++) {
-					ctx.lineTo(getX(i), getY(rowData[i][channel]));
-				}
-				ctx.stroke();
-			};
+      ctx.fillStyle = "#181818";
+      ctx.fillRect(0, 0, w, h);
 
-			if (showR) drawGraphLine('#ef4444', 'r');
-			if (showG) drawGraphLine('#22c55e', 'g');
-			if (showB) drawGraphLine('#3b82f6', 'b');
-			if (showA) drawGraphLine('#e5e7eb', 'a');
-		}
-	});
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 1;
+      [0, 0.5, 1].forEach((p) => {
+        const yPos = Math.floor(h - h * p) - 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, yPos);
+        ctx.lineTo(w, yPos);
+        ctx.stroke();
+      });
+
+      if (rowData.length === 0) return;
+
+      const getY = (val: number) => h - (val / 255) * h;
+      const getX = (index: number) => (index / (rowData.length - 1)) * w;
+
+      const drawGraphLine = (color: string, channel: Channel) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(getX(0), getY(rowData[0][channel]));
+        for (let i = 1; i < rowData.length; i++) {
+          ctx.lineTo(getX(i), getY(rowData[i][channel]));
+        }
+        ctx.stroke();
+      };
+
+      if (chartShowR) drawGraphLine("#ef4444", "r");
+      if (chartShowG) drawGraphLine("#22c55e", "g");
+      if (chartShowB) drawGraphLine("#3b82f6", "b");
+      if (chartShowA) drawGraphLine("#e5e7eb", "a");
+    }
+  });
 </script>
 
-<div class="gradient-inspector" class:compact={!gradientOpen} style="--scale: {scale}">
-	{#if buffer}
-		<div class="inspector-layout">
-			<div class="image-wrapper">
-				<PixelBufferDisplay buffer={buffer} fixedWidth={600} bind:imageHeight={displayHeight}>
-					{#if gradientOpen}
-						<div class="scan-line" style:top="{scanLineTopPct}%"></div>
-					{/if}
-				</PixelBufferDisplay>
-			</div>
+<div class="gradient-viewer" class:open={gradientOpen} style="--scale: {scale}">
+  {#if buffer}
+    <div class="viewer-row">
+      <!-- One shared box: image + chart + both RGBA stacks -->
+      <div class="media-box" style:--media-w="{resolvedWidth}px">
+        <div class="media-grid">
+          <div class="image-slot">
+            <PixelBufferDisplay
+              {buffer}
+              fixedWidth={resolvedWidth}
+              showTools={false}
+              bind:showR
+              bind:showG
+              bind:showB
+              bind:showA
+              bind:imageHeight={displayHeight}
+            >
+              {#if gradientOpen}
+                <div class="scan-line" style:top="{scanLineTopPct}%"></div>
+              {/if}
+            </PixelBufferDisplay>
+          </div>
 
-			{#if gradientOpen}
-				<div class="slider-wrapper" style:height="{displayHeight}px">
-					<input
-						type="range"
-						min="0"
-						max="1"
-						step="0.001"
-						bind:value={selectionPct}
-						class="vertical-slider"
-						style:width="{displayHeight}px"
-						aria-label="Scan row"
-						aria-orientation="vertical"
-					/>
-				</div>
-			{/if}
-		</div>
+          <div class="img-channels">
+            <button
+              type="button"
+              class="ch-btn red"
+              class:active={showR}
+              disabled={showA}
+              onclick={() => (showR = !showR)}
+              title="Toggle Red"
+            >
+              R
+            </button>
+            <button
+              type="button"
+              class="ch-btn green"
+              class:active={showG}
+              disabled={showA}
+              onclick={() => (showG = !showG)}
+              title="Toggle Green"
+            >
+              G
+            </button>
+            <button
+              type="button"
+              class="ch-btn blue"
+              class:active={showB}
+              disabled={showA}
+              onclick={() => (showB = !showB)}
+              title="Toggle Blue"
+            >
+              B
+            </button>
+            <button
+              type="button"
+              class="ch-btn alpha"
+              class:active={showA}
+              onclick={() => (showA = !showA)}
+              title="View Alpha"
+            >
+              A
+            </button>
+          </div>
 
-		<button
-			type="button"
-			class="gradient-toggle"
-			onclick={() => (gradientOpen = !gradientOpen)}
-			aria-expanded={gradientOpen}
-		>
-			<span class="material-icons-round">{gradientOpen ? 'expand_less' : 'expand_more'}</span>
-			<span>{gradientOpen ? 'Hide gradient' : 'Show gradient'}</span>
-		</button>
+          {#if gradientOpen}
+            <div class="chart-slot">
+              <div class="chart-body">
+                <div class="y-axis" aria-hidden="true">
+                  <span>255</span>
+                  <span>128</span>
+                  <span>0</span>
+                </div>
+                <canvas
+                  bind:this={chartCanvas}
+                  width={resolvedWidth}
+                  height={120}
+                ></canvas>
+              </div>
+            </div>
 
-		{#if gradientOpen}
-			<div class="chart-container" style:width="600px">
-				<div class="chart-header">
-					<span>Row Index: {rowIndex}</span>
+            <div class="chart-channels">
+              <button
+                type="button"
+                class="ch-btn red"
+                class:active={chartShowR}
+                onclick={() => (chartShowR = !chartShowR)}
+                title="Toggle Red"
+              >
+                R
+              </button>
+              <button
+                type="button"
+                class="ch-btn green"
+                class:active={chartShowG}
+                onclick={() => (chartShowG = !chartShowG)}
+                title="Toggle Green"
+              >
+                G
+              </button>
+              <button
+                type="button"
+                class="ch-btn blue"
+                class:active={chartShowB}
+                onclick={() => (chartShowB = !chartShowB)}
+                title="Toggle Blue"
+              >
+                B
+              </button>
+              <button
+                type="button"
+                class="ch-btn alpha"
+                class:active={chartShowA}
+                onclick={() => (chartShowA = !chartShowA)}
+                title="Toggle Alpha"
+              >
+                A
+              </button>
+            </div>
+          {/if}
+        </div>
+      </div>
 
-					<div class="toggles">
-						<button
-							class="toggle-btn red"
-							class:active={showR}
-							onclick={() => (showR = !showR)}
-							title="Toggle Red"
-						>
-							R
-						</button>
-						<button
-							class="toggle-btn green"
-							class:active={showG}
-							onclick={() => (showG = !showG)}
-							title="Toggle Green"
-						>
-							G
-						</button>
-						<button
-							class="toggle-btn blue"
-							class:active={showB}
-							onclick={() => (showB = !showB)}
-							title="Toggle Blue"
-						>
-							B
-						</button>
-						<button
-							class="toggle-btn alpha"
-							class:active={showA}
-							onclick={() => (showA = !showA)}
-							title="Toggle Alpha"
-						>
-							A
-						</button>
-					</div>
-				</div>
-
-				<div class="chart-body">
-					<div class="y-axis" aria-hidden="true">
-						<span>255</span>
-						<span>128</span>
-						<span>0</span>
-					</div>
-					<canvas bind:this={chartCanvas} width={600} height={150}></canvas>
-				</div>
-			</div>
-		{/if}
-	{:else}
-		<div class="empty-msg">No Data</div>
-	{/if}
+      {#if gradientOpen}
+        <div class="gradient-ctrl" style:--image-h="{imageFrameHeight}px">
+          <div class="slider-rail">
+            <div class="slider-wrap">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.001"
+                bind:value={selectionPct}
+                class="vertical-slider"
+                style:width="{Math.max(40, imageFrameHeight)}px"
+                aria-label="Scan row"
+                aria-orientation="vertical"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            class="collapse-gradient"
+            onclick={() => (gradientOpen = false)}
+            title="Hide gradient"
+          >
+            <span class="material-icons-round">expand_more</span>
+          </button>
+        </div>
+      {:else}
+        <button
+          type="button"
+          class="view-gradient-tab"
+          style:height="{imageFrameHeight}px"
+          onclick={() => (gradientOpen = true)}
+          aria-expanded="false"
+        >
+          <span class="tab-label">View Gradient</span>
+        </button>
+      {/if}
+    </div>
+  {:else}
+    <div class="empty-msg">No Data</div>
+  {/if}
 </div>
 
 <style>
-	.gradient-inspector {
-		background: #252525;
-		padding: 20px;
-		border-radius: 8px;
-		border: 1px solid #444;
-		display: inline-flex;
-		flex-direction: column;
-		gap: 15px;
-		color: #ddd;
-		font-family: monospace;
+  .gradient-viewer {
+    display: inline-block;
+    width: fit-content;
+    max-width: 100%;
+    color: #ddd;
+    font-family: monospace;
+    transform: scale(var(--scale));
+    transform-origin: top left;
+  }
 
-		transform: scale(var(--scale));
-		transform-origin: top left;
-	}
+  .viewer-row {
+    --media-pad: 10px;
+    --media-border: 1px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+    width: fit-content;
+  }
 
-	.gradient-inspector.compact {
-		padding: 12px;
-		gap: 10px;
-	}
+  /* Shared floating box for image + graph + both RGBA stacks */
+  .media-box {
+    padding: var(--media-pad);
+    border-radius: 12px;
+    background: rgba(30, 30, 34, 0.92);
+    border: var(--media-border) solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    box-sizing: border-box;
+  }
 
-	.inspector-layout {
-		display: flex;
-		gap: 15px;
-		align-items: flex-end;
-	}
+  .media-grid {
+    display: grid;
+    grid-template-columns: var(--media-w) auto;
+    grid-template-areas: "image imgCh";
+    column-gap: 10px;
+    row-gap: 10px;
+    align-items: start;
+    width: fit-content;
+  }
 
-	.image-wrapper {
-		position: relative;
-		line-height: 0;
-		display: flex;
-	}
+  .open .media-grid {
+    grid-template-areas:
+      "image imgCh"
+      "chart chartCh";
+  }
 
-	.scan-line {
-		position: absolute;
-		left: 0;
-		right: 0;
-		height: 1px;
-		background-color: rgba(255, 0, 0, 0.9);
-		box-shadow: 0 0 3px rgba(255, 0, 0, 0.8);
-		pointer-events: none;
-		z-index: 10;
-		transform: translateY(-50%);
-	}
+  .image-slot {
+    grid-area: image;
+    width: var(--media-w);
+    line-height: 0;
+  }
 
-	.slider-wrapper {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 30px;
-		background: #1e1e1e;
-		border-radius: 4px;
-		padding: 0;
-		border: 1px solid #333;
-	}
+  .image-slot :global(.image-frame) {
+    width: var(--media-w);
+    box-sizing: border-box;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    overflow: hidden;
+  }
 
-	.vertical-slider {
-		-webkit-appearance: none;
-		appearance: none;
-		height: 22px;
-		margin: 0;
-		padding: 0;
-		background: transparent;
-		cursor: pointer;
-		transform: rotate(90deg);
-		transform-origin: center center;
-		flex-shrink: 0;
-	}
+  .image-slot :global(.image-frame canvas) {
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+  }
 
-	.vertical-slider:focus {
-		outline: none;
-	}
+  .chart-slot {
+    grid-area: chart;
+    width: var(--media-w);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
 
-	.vertical-slider:focus-visible::-webkit-slider-thumb {
-		box-shadow:
-			0 0 0 3px rgba(0, 0, 0, 0.45),
-			0 0 0 5px rgba(239, 68, 68, 0.45);
-	}
+  .img-channels,
+  .chart-channels {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-self: start;
+  }
 
-	.vertical-slider:focus-visible::-moz-range-thumb {
-		box-shadow:
-			0 0 0 3px rgba(0, 0, 0, 0.45),
-			0 0 0 5px rgba(239, 68, 68, 0.45);
-	}
+  .img-channels {
+    grid-area: imgCh;
+  }
 
-	.vertical-slider::-webkit-slider-runnable-track {
-		height: 6px;
-		border-radius: 999px;
-		background: #333;
-		border: 1px solid #444;
-	}
+  .chart-channels {
+    grid-area: chartCh;
+  }
 
-	.vertical-slider::-webkit-slider-thumb {
-		-webkit-appearance: none;
-		appearance: none;
-		width: 16px;
-		height: 16px;
-		margin-top: -6px;
-		border-radius: 50%;
-		background: #ef4444;
-		border: 2px solid #111;
-		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
-		cursor: pointer;
-	}
+  .chart-header {
+    font-size: 0.75rem;
+    margin-bottom: 6px;
+    color: #888;
+  }
 
-	.vertical-slider::-moz-range-track {
-		height: 6px;
-		border-radius: 999px;
-		background: #333;
-		border: 1px solid #444;
-	}
+  .chart-body {
+    position: relative;
+    width: var(--media-w);
+    height: 120px;
+    box-sizing: border-box;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    overflow: hidden;
+    background: #181818;
+  }
 
-	.vertical-slider::-moz-range-thumb {
-		width: 16px;
-		height: 16px;
-		border-radius: 50%;
-		background: #ef4444;
-		border: 2px solid #111;
-		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
-		cursor: pointer;
-	}
+  /* Overlay labels so the plot stays full image width */
+  .y-axis {
+    position: absolute;
+    left: 4px;
+    top: 2px;
+    bottom: 2px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    font-size: 0.65rem;
+    color: #aaa;
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+    text-shadow:
+      0 0 3px #000,
+      0 0 3px #000;
+  }
 
-	.vertical-slider::-moz-range-progress {
-		height: 6px;
-		border-radius: 999px;
-		background: color-mix(in srgb, #ef4444 45%, #333);
-	}
+  .chart-body canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: none;
+    box-sizing: border-box;
+  }
 
-	.gradient-toggle {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 6px;
-		width: 600px;
-		padding: 6px 10px;
-		border: 1px dashed #444;
-		border-radius: 4px;
-		background: #1e1e1e;
-		color: #888;
-		font-family: inherit;
-		font-size: 0.75rem;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
+  .gradient-ctrl {
+    /* Match media-box inset so the rail lines up with the image frame */
+    margin-top: calc(var(--media-border) + var(--media-pad));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
 
-	.gradient-toggle:hover {
-		color: #ddd;
-		border-color: #666;
-		background: #252525;
-	}
+  .slider-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: var(--image-h);
+    padding: 0;
+    box-sizing: border-box;
+    border-radius: 10px;
+    background: rgba(30, 30, 34, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  }
 
-	.gradient-toggle .material-icons-round {
-		font-size: 18px;
-	}
+  .collapse-gradient {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 28px;
+    padding: 0;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(30, 30, 34, 0.92);
+    color: #888;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  }
 
-	.chart-container {
-		background: #1e1e1e;
-		border: 1px solid #444;
-		padding: 10px;
-		border-radius: 4px;
-		box-sizing: border-box;
-	}
+  .collapse-gradient:hover {
+    color: #ddd;
+    border-color: rgba(59, 130, 246, 0.45);
+  }
 
-	.chart-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		font-size: 0.8rem;
-		margin-bottom: 8px;
-		color: #888;
-	}
+  .collapse-gradient .material-icons-round {
+    font-size: 18px;
+  }
 
-	.chart-body {
-		display: flex;
-		align-items: stretch;
-		gap: 6px;
-	}
+  .slider-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+  }
 
-	.y-axis {
-		display: flex;
-		flex-direction: column;
-		justify-content: space-between;
-		align-items: flex-end;
-		font-size: 0.7rem;
-		color: #888;
-		line-height: 1;
-		padding: 1px 0;
-		flex-shrink: 0;
-		min-width: 3ch;
-		user-select: none;
-	}
+  .view-gradient-tab {
+    margin-top: calc(var(--media-border) + var(--media-pad));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    padding: 8px 0;
+    box-sizing: border-box;
+    border-radius: 10px;
+    background: rgba(30, 30, 34, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    color: #94a3b8;
+    cursor: pointer;
+    font-family: inherit;
+  }
 
-	.toggles {
-		display: flex;
-		gap: 4px;
-	}
-	.toggle-btn {
-		background: #111;
-		border: 1px solid #444;
-		color: #666;
-		width: 24px;
-		height: 24px;
-		border-radius: 4px;
-		font-size: 0.7rem;
-		font-weight: bold;
-		cursor: pointer;
-		display: grid;
-		place-items: center;
-		transition: all 0.2s;
-		padding: 0;
-	}
+  .view-gradient-tab:hover {
+    color: #e2e8f0;
+    border-color: rgba(59, 130, 246, 0.5);
+  }
 
-	.toggle-btn.active.red {
-		background: #ef4444;
-		color: #fff;
-		border-color: #ef4444;
-		box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
-	}
-	.toggle-btn.active.green {
-		background: #22c55e;
-		color: #fff;
-		border-color: #22c55e;
-		box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
-	}
-	.toggle-btn.active.blue {
-		background: #3b82f6;
-		color: #fff;
-		border-color: #3b82f6;
-		box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
-	}
-	.toggle-btn.active.alpha {
-		background: #e5e7eb;
-		color: #111;
-		border-color: #e5e7eb;
-		box-shadow: 0 0 8px rgba(229, 231, 235, 0.4);
-	}
+  .tab-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    user-select: none;
+  }
 
-	canvas {
-		display: block;
-		width: 100%;
-		border: 1px solid #333;
-		flex: 1;
-		min-width: 0;
-	}
+  .ch-btn {
+    width: 25.5px;
+    height: 25.5px;
+    border: 1px solid #444;
+    background: #111;
+    color: #666;
+    font-size: 0.7rem;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    transition: all 0.15s;
+  }
 
-	.empty-msg {
-		padding: 20px;
-		color: #666;
-		text-align: center;
-	}
+  .ch-btn:hover:not(:disabled) {
+    border-color: #666;
+    color: #ddd;
+  }
+
+  .ch-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .ch-btn.active.red {
+    background: #ef4444;
+    color: #fff;
+    border-color: #ef4444;
+  }
+  .ch-btn.active.green {
+    background: #22c55e;
+    color: #fff;
+    border-color: #22c55e;
+  }
+  .ch-btn.active.blue {
+    background: #3b82f6;
+    color: #fff;
+    border-color: #3b82f6;
+  }
+  .ch-btn.active.alpha {
+    background: #e5e7eb;
+    color: #111;
+    border-color: #e5e7eb;
+  }
+
+  .vertical-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 22px;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    transform: rotate(90deg);
+    transform-origin: center center;
+    flex-shrink: 0;
+  }
+
+  .vertical-slider:focus {
+    outline: none;
+  }
+
+  .vertical-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: #333;
+    border: 1px solid #444;
+  }
+
+  .vertical-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: #ef4444;
+    border: 2px solid #111;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+  }
+
+  .vertical-slider::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: #333;
+    border: 1px solid #444;
+  }
+
+  .vertical-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ef4444;
+    border: 2px solid #111;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+  }
+
+  .scan-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: rgba(255, 0, 0, 0.9);
+    box-shadow: 0 0 3px rgba(255, 0, 0, 0.8);
+    pointer-events: none;
+    z-index: 10;
+    transform: translateY(-50%);
+  }
+
+  .empty-msg {
+    padding: 24px;
+    color: #666;
+    text-align: center;
+    border-radius: 10px;
+    background: rgba(30, 30, 34, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
 </style>

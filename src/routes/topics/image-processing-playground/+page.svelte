@@ -11,8 +11,6 @@
 	import Threshold_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Threshold_Operator.svelte';
 	import Morphology_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Morphology_Operator.svelte';
 
-	// --- 1. CONFIGURATION ---
-
 	interface OperatorProps {
 		input: PixelBuffer | null;
 		output?: PixelBuffer | null;
@@ -32,7 +30,6 @@
 		output: PixelBuffer | null;
 	}
 
-	// The registry defines which operators are allowed and their labels
 	const operatorRegistry: OperatorDef[] = [
 		{ type: 'grayscale', label: 'Grayscale', component: Grayscale_Operator },
 		{ type: 'convolution', label: 'Convolution', component: Convolution_Operator },
@@ -41,25 +38,16 @@
 		{ type: 'morphology', label: 'Morphology', component: Morphology_Operator }
 	];
 
-	// --- 2. STATE ---
-
 	let originalImage: PixelBuffer | null = $state(null);
-
-	// The dynamic pipeline. Each item needs a unique ID, type, and an output buffer container.
 	let pipeline: PipelineStep[] = $state([]);
-
 	let selectedOperatorToAdd = $state(operatorRegistry[0].type);
 
-	// --- 3. ACTIONS ---
-
 	function addStep(type: string, index: number | null = null) {
-		// 1. Find the full definition from your registry to get the label
 		const opDef = operatorRegistry.find((op) => op.type === type);
 
 		const newStep: PipelineStep = {
 			id: crypto.randomUUID(),
 			type: type,
-			// 2. Add the label here so step.label works in the HTML
 			label: opDef ? opDef.label : 'Unknown Step',
 			output: null
 		};
@@ -88,14 +76,11 @@
 		pipeline = newPipeline;
 	}
 
-	// Helper to get input buffer based on index
-	// If index 0, input is originalImage. Otherwise, input is previous step's output.
 	function getInputBuffer(index: number): PixelBuffer | null {
 		if (index === 0) return originalImage;
 		return pipeline[index - 1].output;
 	}
 
-	// Helper to find component class from registry
 	function getComponentType(typeStr: string): Component<OperatorProps> | undefined {
 		return operatorRegistry.find((op) => op.type === typeStr)?.component;
 	}
@@ -107,60 +92,80 @@
 	</div>
 
 	<div class="chain">
-		<div class="pipeline-line"></div>
-
-		<div class="step-card">
-			<div class="step-badge">1</div>
-
-			<div class="sidebar-col">
-				<div class="spacer">
-					<span class="label-faint" style="font-size: 30px;">Original Image</span>
-				</div>
-				<Histogram input={originalImage} />
+		<div class="step-row">
+			<div class="step-meta">
+				<span class="step-badge">1</span>
 			</div>
 
-			<div class="main-col">
-				<GradientViewer buffer={originalImage} />
+			<div class="flow">
+				<div class="node op-node">
+					<div class="op-bar static">
+						<span class="material-icons-round">image</span>
+						<span class="op-title">Original Image</span>
+					</div>
+				</div>
+
+				<div class="connector" aria-hidden="true"></div>
+
+				<div class="node image-node">
+					<GradientViewer buffer={originalImage} />
+				</div>
+
+				<div class="connector" aria-hidden="true"></div>
+
+				<div class="node hist-node">
+					<Histogram input={originalImage} />
+				</div>
 			</div>
 		</div>
 
 		{#each pipeline as step, i (step.id)}
-			<div class="step-card">
-				<div class="step-badge">
-					{i + 2}
+			<div class="step-link" aria-hidden="true"></div>
+
+			<div class="step-row">
+				<div class="step-meta">
+					<span class="step-badge">{i + 2}</span>
+					<div class="step-controls">
+						<button class="icon-btn" onclick={() => moveStep(i, -1)} disabled={i === 0}>↑</button>
+						<button
+							class="icon-btn"
+							onclick={() => moveStep(i, 1)}
+							disabled={i === pipeline.length - 1}>↓</button
+						>
+						<button class="icon-btn delete" onclick={() => removeStep(i)}>×</button>
+					</div>
 				</div>
 
-				<div class="step-controls">
-					<button class="icon-btn" onclick={() => moveStep(i, -1)} disabled={i === 0}>↑</button>
-					<button
-						class="icon-btn"
-						onclick={() => moveStep(i, 1)}
-						disabled={i === pipeline.length - 1}>↓</button
-					>
-					<button class="icon-btn delete" onclick={() => removeStep(i)}>×</button>
-				</div>
-
-				<div class="sidebar-col">
-					<div class="operator-wrapper">
+				<div class="flow">
+					<div class="node op-node">
 						{#if getComponentType(step.type)}
 							{@const OperatorComponent = getComponentType(step.type)}
 							<OperatorComponent input={getInputBuffer(i)} bind:output={step.output} />
 						{/if}
 					</div>
-					<Histogram input={step.output} />
-				</div>
 
-				<div class="main-col">
-					<GradientViewer buffer={step.output} />
+					<div class="connector" aria-hidden="true"></div>
+
+					<div class="node image-node">
+						<GradientViewer buffer={step.output} />
+					</div>
+
+					<div class="connector" aria-hidden="true"></div>
+
+					<div class="node hist-node">
+						<Histogram input={step.output} />
+					</div>
 				</div>
 			</div>
 		{/each}
+
+		<div class="step-link short" aria-hidden="true"></div>
 
 		<div class="add-section">
 			<div class="add-card">
 				<span class="label-faint">Next Operation:</span>
 				<select bind:value={selectedOperatorToAdd} class="op-select">
-					{#each operatorRegistry as op}
+					{#each operatorRegistry as op (op.type)}
 						<option value={op.type}>{op.label}</option>
 					{/each}
 				</select>
@@ -171,24 +176,75 @@
 </div>
 
 <style>
-	/* --- NEW STYLES FOR DYNAMICS (Added to your existing CSS) --- */
+	.page-layout {
+		width: 100%;
+		max-width: none;
+		margin: 0;
+		padding: 16px 20px 40px;
+		background-color: transparent;
+		min-height: 100vh;
+		font-family: sans-serif;
+		color: #e0e0e0;
+		box-sizing: border-box;
+	}
 
-	/* Small controls near the badge */
+	.loader-row {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		margin-bottom: 28px;
+		padding-bottom: 20px;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	}
+
+	.chain {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0;
+	}
+
+	.step-row {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.step-meta {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding-left: 2px;
+		min-height: 24px;
+	}
+
+	.step-badge {
+		background: #3b82f6;
+		color: white;
+		font-weight: bold;
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.8rem;
+		box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+		flex-shrink: 0;
+	}
+
 	.step-controls {
-		position: absolute;
-		top: -12px;
-		left: 55px; /* Right of badge */
 		display: flex;
 		gap: 5px;
-		z-index: 5;
 	}
 
 	.icon-btn {
 		width: 24px;
 		height: 24px;
 		border-radius: 50%;
-		border: 1px solid #444;
-		background: #222;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: rgba(20, 20, 24, 0.85);
 		color: #888;
 		cursor: pointer;
 		display: flex;
@@ -199,7 +255,7 @@
 	}
 
 	.icon-btn:hover:not(:disabled) {
-		background: #444;
+		background: #333;
 		color: white;
 	}
 
@@ -211,24 +267,132 @@
 	.icon-btn.delete:hover {
 		background: #ef4444;
 		border-color: #ef4444;
+		color: white;
 	}
 
-	/* Add Section at bottom */
-	.add-section {
+	.flow {
 		display: flex;
-		justify-content: center;
-		padding-top: 10px;
+		flex-direction: row;
+		align-items: flex-start;
+		gap: 0;
+		width: 100%;
+	}
+
+	.node {
+		position: relative;
 		z-index: 1;
 	}
 
+	.op-node {
+		width: fit-content;
+		max-width: 340px;
+		flex-shrink: 0;
+	}
+
+	.image-node {
+		flex: 0 0 auto;
+		width: fit-content;
+		max-width: min(640px, 45vw);
+	}
+
+	.hist-node {
+		flex: 1 1 auto;
+		min-width: 200px;
+	}
+
+	/* Horizontal connectors between floating boxes */
+	.connector {
+		width: 28px;
+		min-width: 28px;
+		align-self: stretch;
+		position: relative;
+		flex-shrink: 0;
+		pointer-events: none;
+	}
+
+	.connector::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 36px;
+		height: 2px;
+		background: repeating-linear-gradient(
+			to right,
+			rgba(59, 130, 246, 0.55),
+			rgba(59, 130, 246, 0.55) 6px,
+			transparent 6px,
+			transparent 11px
+		);
+	}
+
+	/* Vertical link between pipeline steps */
+	.step-link {
+		width: 2px;
+		height: 28px;
+		margin: 4px 0 4px 11px;
+		background: repeating-linear-gradient(
+			to bottom,
+			rgba(59, 130, 246, 0.45),
+			rgba(59, 130, 246, 0.45) 5px,
+			transparent 5px,
+			transparent 9px
+		);
+		align-self: flex-start;
+	}
+
+	.step-link.short {
+		height: 18px;
+	}
+
+	.op-bar {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 8px 12px;
+		margin: 0;
+		border: 1px solid rgba(52, 61, 74, 0.9);
+		border-radius: 10px;
+		background: #1e252e;
+		color: #e0e0e0;
+		font-family: inherit;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+	}
+
+	.op-bar.static {
+		cursor: default;
+		min-width: 160px;
+	}
+
+	.op-bar .material-icons-round {
+		font-size: 18px;
+		color: #3b82f6;
+		flex-shrink: 0;
+	}
+
+	.op-title {
+		flex: 1;
+		font-size: 0.85rem;
+		font-weight: 600;
+		white-space: nowrap;
+	}
+
+	.add-section {
+		display: flex;
+		justify-content: flex-start;
+		padding-top: 4px;
+		padding-left: 0;
+	}
+
 	.add-card {
-		background: #111;
-		border: 1px dashed #444;
-		padding: 15px 25px;
-		border-radius: 30px;
+		background: rgba(17, 17, 17, 0.7);
+		border: 1px dashed rgba(255, 255, 255, 0.18);
+		padding: 12px 20px;
+		border-radius: 999px;
 		display: flex;
 		gap: 15px;
 		align-items: center;
+		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 	}
 
 	.op-select {
@@ -252,142 +416,9 @@
 		background: #2563eb;
 	}
 
-	/* --- ORIGINAL CSS BELOW (UNCHANGED) --- */
-
-	/* --- GLOBAL LAYOUT --- */
-	.page-layout {
-		max-width: 1500px;
-		margin: 0 auto;
-		padding: 24px;
-		background-color: #0d0d0d; /* Very dark background */
-		min-height: 100vh;
-		font-family: sans-serif;
-		color: #e0e0e0;
-	}
-
-	.loader-row {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		margin-bottom: 24px;
-		padding-bottom: 16px;
-		border-bottom: 1px solid #333;
-	}
-
-	.header-label {
-		font-size: 1.2rem;
-		font-weight: bold;
-		color: #888;
-		letter-spacing: 1px;
-		text-transform: uppercase;
-	}
-
-	/* --- CHAIN CONTAINER --- */
-	.chain {
-		position: relative; /* Context for the line */
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	/* The Vertical Dashed Line */
-	.pipeline-line {
-		position: absolute;
-		left: 50%;
-		top: 0;
-		bottom: 0;
-		width: 2px;
-		background: repeating-linear-gradient(
-			to bottom,
-			#333,
-			#333 10px,
-			transparent 10px,
-			transparent 20px
-		);
-		transform: translateX(-50%);
-		z-index: 0;
-	}
-
-	/* --- STEP CARD (The Container) --- */
-	.step-card {
-		position: relative;
-		display: flex;
-		flex-direction: row;
-		gap: 14px;
-
-		background: #1a1a1a;
-		border: 1px solid #333;
-		border-radius: 12px;
-		padding: 14px;
-
-		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-		z-index: 1; /* Sit above the line */
-	}
-
-	/* Number Badge on the left */
-	.step-badge {
-		position: absolute;
-		top: -12px;
-		left: 20px;
-		background: #3b82f6;
-		color: white;
-		font-weight: bold;
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.8rem;
-		box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
-	}
-
-	/* --- LEFT COLUMN (Operator + Histogram) --- */
-	.sidebar-col {
-		display: flex;
-		flex-direction: column;
-		justify-content: flex-start;
-		align-items: stretch; /* Stretch to fill width */
-		gap: 10px;
-
-		/* Fixed width ensures alignment across steps */
-		width: 360px;
-		min-width: 360px;
-
-		background: #161616;
-		border-radius: 8px;
-		border: 1px solid #2a2a2a;
-		padding: 12px;
-	}
-
-	.operator-wrapper {
-		padding-bottom: 10px;
-		border-bottom: 1px dashed #333;
-	}
-
-	.spacer {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
 	.label-faint {
-		color: #444;
+		color: #888;
 		font-size: 0.8rem;
 		text-transform: uppercase;
-	}
-
-	/* --- RIGHT COLUMN (Image) --- */
-	.main-col {
-		flex: 1; /* Take remaining space */
-		display: flex;
-		justify-content: center;
-		align-items: flex-start;
-		background: #111;
-		border-radius: 8px;
-		border: 1px solid #2a2a2a;
-		padding: 8px;
-		min-height: 0;
 	}
 </style>

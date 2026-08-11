@@ -142,14 +142,15 @@
 
 <style>
 	.operator-card {
-		background: #2a2a2a;
-		border: 1px solid #444;
-		border-radius: 8px;
+		background: rgba(30, 37, 46, 0.95);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 10px;
 		padding: 12px;
 		color: #e0e0e0;
 		font-family: sans-serif;
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
 		box-sizing: border-box;
+		width: 100%;
 	}
 
 	.operator-card.collapsed {
