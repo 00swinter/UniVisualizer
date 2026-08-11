@@ -19,5 +19,12 @@
 		"tags": ["cryptographie"],
 		"summary": "understand lattis encryption used in post quantum encryption",
 		"href": "/topics/lattis-encryption"
+	},
+	{
+		"id": "image-processing-playground",
+		"title": "Image Processing Playground",
+		"tags": ["Image-Processing"],
+		"summary": "play with image processing algorithms and chain them together",
+		"href": "/topics/image-processing-playground"
 	}
 ]

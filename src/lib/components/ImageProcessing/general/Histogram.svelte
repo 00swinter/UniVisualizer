@@ -1,0 +1,191 @@
+<script>
+    import { PixelBuffer } from '$lib/classes/PixelBuffer';
+
+    let { 
+        input, 
+        width = "100%", 
+        height = "150px" 
+    } = $props();
+
+    let showR = $state(true);
+    let showG = $state(true);
+    let showB = $state(true);
+
+    let histR = $state(new Uint32Array(256));
+    let histG = $state(new Uint32Array(256));
+    let histB = $state(new Uint32Array(256));
+    let maxCount = $state(1);
+
+    $effect(() => {
+        if (!input) {
+            histR.fill(0); histG.fill(0); histB.fill(0);
+            return;
+        }
+
+        const src = input.data;
+        const r = new Uint32Array(256);
+        const g = new Uint32Array(256);
+        const b = new Uint32Array(256);
+        
+        for (let i = 0; i < src.length; i += 4) {
+            r[src[i]]++;
+            g[src[i + 1]]++;
+            b[src[i + 2]]++;
+        }
+
+        let max = 0;
+        for(let i=0; i<256; i++) {
+            if (r[i] > max) max = r[i];
+            if (g[i] > max) max = g[i];
+            if (b[i] > max) max = b[i];
+        }
+
+        histR = r;
+        histG = g;
+        histB = b;
+        
+        maxCount = max > 0 ? max : 1;
+    });
+
+    const createBarPath = (data, max) => {
+        let d = `M 0,100 `;
+        
+        for (let i = 0; i < 256; i++) {
+            const x1 = (i / 256) * 100;
+            const x2 = ((i + 1) / 256) * 100;
+            
+            const val = data[i];
+            const height = (val / max) * 100;
+            const y = 100 - height;
+
+            d += `L ${x1.toFixed(2)},${y.toFixed(2)} L ${x2.toFixed(2)},${y.toFixed(2)} `;
+        }
+
+        d += `L 100,100 Z`;
+        return d;
+    };
+</script>
+
+<div class="operator-card" style:width={width}>
+    <div class="header">
+        <div class="title-group">
+            <span class="icon">📊</span>
+            <span class="title">Histogram</span>
+        </div>
+        
+        <div class="toggles">
+            <button class="toggle-btn red" class:active={showR} onclick={() => showR = !showR}>R</button>
+            <button class="toggle-btn green" class:active={showG} onclick={() => showG = !showG}>G</button>
+            <button class="toggle-btn blue" class:active={showB} onclick={() => showB = !showB}>B</button>
+        </div>
+    </div>
+
+    <div class="graph-container" style:height={height}>
+        
+        <div class="y-label top">{maxCount}</div> <div class="y-label mid">{Math.round(maxCount/2)}</div> <div class="y-label bottom">0</div> <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+            <line x1="0" y1="25" x2="100" y2="25" class="grid-line" />
+            <line x1="0" y1="50" x2="100" y2="50" class="grid-line" />
+            <line x1="0" y1="75" x2="100" y2="75" class="grid-line" />
+            
+            {#if showR}
+                <path d={createBarPath(histR, maxCount)} fill="#ef4444" class="hist-layer"/>
+            {/if}
+            {#if showG}
+                <path d={createBarPath(histG, maxCount)} fill="#22c55e" class="hist-layer"/>
+            {/if}
+            {#if showB}
+                <path d={createBarPath(histB, maxCount)} fill="#3b82f6" class="hist-layer"/>
+            {/if}
+        </svg>
+    </div>
+
+    <div class="x-labels">
+        <span>0</span>
+        <span>128</span>
+        <span>255</span>
+    </div>
+</div>
+
+<style>
+    .operator-card {
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 8px;
+        padding: 12px;
+        color: #e0e0e0;
+        font-family: sans-serif;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        box-sizing: border-box;
+    }
+
+    .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between; 
+        margin-bottom: 12px;
+        border-bottom: 1px solid #444;
+        padding-bottom: 8px;
+    }
+    .title-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .icon { font-size: 1.2rem; }
+    .title { font-weight: bold; font-size: 0.9rem; }
+
+    .toggles { display: flex; gap: 4px; }
+    .toggle-btn {
+        background: #111; border: 1px solid #444; color: #666;
+        width: 24px; height: 24px; border-radius: 4px;
+        font-size: 0.7rem; font-weight: bold; cursor: pointer;
+        display: grid; place-items: center; transition: all 0.2s;
+    }
+    .toggle-btn.active.red { background: #ef4444; color: #fff; border-color: #ef4444; }
+    .toggle-btn.active.green { background: #22c55e; color: #fff; border-color: #22c55e; }
+    .toggle-btn.active.blue { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+    .graph-container {
+        width: 100%;
+        background: #111;
+        border: 1px solid #444;
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+        shape-rendering: crispEdges; 
+    }
+
+    .grid-line { stroke: #333; stroke-width: 1; vector-effect: non-scaling-stroke; }
+    .hist-layer { mix-blend-mode: screen; opacity: 0.9; }
+
+    .y-label {
+        position: absolute;
+        left: 4px;
+        font-size: 0.6rem;
+        font-family: monospace;
+        color: #888;
+        background: rgba(0,0,0,0.6);
+        padding: 1px 3px;
+        border-radius: 2px;
+        pointer-events: none;
+        z-index: 10;
+    }
+    .y-label.top { top: 4px; }
+    .y-label.mid { top: 50%; transform: translateY(-50%); opacity: 0.5; }
+    .y-label.bottom { bottom: 4px; }
+
+    .x-labels {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 4px;
+        font-size: 0.7rem;
+        color: #666;
+        font-family: monospace;
+    }
+</style>
