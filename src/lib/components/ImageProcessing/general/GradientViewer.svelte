@@ -7,21 +7,33 @@
     scale?: number;
     imageWidth?: number;
     maxImageHeight?: number;
+    fitWidth?: number;
+    fitHeight?: number;
     /** Outer image-frame height (incl. borders); bindable for sibling layout. */
     imageHeight?: number;
+    onExpand?: (() => void) | undefined;
   }
 
   type Channel = "r" | "g" | "b" | "a";
   type RowPixel = { r: number; g: number; b: number; a: number };
 
   const MAX_DISPLAY_WIDTH = 560;
+  const MEDIA_BOX_EXTRA_WIDTH = 58;
+  const CLOSED_SIDE_EXTRA_WIDTH = 46;
+  const OPEN_SIDE_EXTRA_WIDTH = 46;
+  const CHART_HEIGHT = 120;
+  const STACK_GAP = 10;
+  const MEDIA_BOX_VERTICAL_PADDING = 22;
 
   let {
     buffer,
     scale = 1,
     imageWidth,
     maxImageHeight = 380,
+    fitWidth,
+    fitHeight,
     imageHeight = $bindable(0),
+    onExpand,
   }: Props = $props();
 
   let gradientOpen = $state(false);
@@ -48,11 +60,35 @@
   let chartShowA = $state(false);
 
   let resolvedWidth = $derived.by(() => {
-    if (imageWidth != null) return imageWidth;
-    if (!buffer || buffer.width <= 0) return 280;
-    const byHeight = (buffer.width / buffer.height) * maxImageHeight;
-    return Math.max(160, Math.floor(Math.min(byHeight, MAX_DISPLAY_WIDTH)));
+    if (!buffer || buffer.width <= 0 || buffer.height <= 0) {
+      return imageWidth ?? 280;
+    }
+
+    let nextWidth = imageWidth ?? Math.floor(Math.min((buffer.width / buffer.height) * maxImageHeight, MAX_DISPLAY_WIDTH));
+
+    if (fitWidth != null && fitWidth > 0) {
+      const sideExtra = gradientOpen ? OPEN_SIDE_EXTRA_WIDTH : CLOSED_SIDE_EXTRA_WIDTH;
+      const maxWidthFromViewport = Math.floor(fitWidth - MEDIA_BOX_EXTRA_WIDTH - sideExtra);
+      nextWidth = Math.min(nextWidth, maxWidthFromViewport);
+    }
+
+    if (fitHeight != null && fitHeight > 0) {
+      const chromeHeight =
+        MEDIA_BOX_VERTICAL_PADDING + (gradientOpen ? CHART_HEIGHT + STACK_GAP : 0);
+      const maxImageHeightFromViewport = Math.floor(fitHeight - chromeHeight);
+      const maxWidthFromHeight = Math.floor((buffer.width / buffer.height) * maxImageHeightFromViewport);
+      nextWidth = Math.min(nextWidth, maxWidthFromHeight);
+    }
+
+    return Math.max(160, nextWidth);
   });
+  let estimatedViewerWidth = $derived(
+    resolvedWidth + MEDIA_BOX_EXTRA_WIDTH + (gradientOpen ? OPEN_SIDE_EXTRA_WIDTH : CLOSED_SIDE_EXTRA_WIDTH),
+  );
+  let estimatedViewerHeight = $derived(
+    displayHeight + MEDIA_BOX_VERTICAL_PADDING + (gradientOpen ? CHART_HEIGHT + STACK_GAP : 0),
+  );
+  let resolvedScale = $derived(Math.max(0.2, Math.min(1, scale)));
 
   let rowIndex = $derived.by(() => {
     if (!buffer || buffer.height <= 1) return 0;
@@ -130,7 +166,7 @@
   });
 </script>
 
-<div class="gradient-viewer" class:open={gradientOpen} style="--scale: {scale}">
+<div class="gradient-viewer" class:open={gradientOpen} style="--scale: {resolvedScale}">
   {#if buffer}
     <div class="viewer-row">
       <!-- One shared box: image + chart + both RGBA stacks -->
@@ -196,6 +232,16 @@
             >
               A
             </button>
+            {#if onExpand}
+              <button
+                type="button"
+                class="ch-btn expand-btn"
+                onclick={onExpand}
+                title="Expand image and gradient"
+              >
+                <span class="material-icons-round">open_in_full</span>
+              </button>
+            {/if}
           </div>
 
           {#if gradientOpen}
@@ -302,13 +348,14 @@
 
 <style>
   .gradient-viewer {
-    display: inline-block;
+    display: block;
     width: fit-content;
     max-width: 100%;
+    margin: 0 auto;
     color: #ddd;
     font-family: monospace;
     transform: scale(var(--scale));
-    transform-origin: top left;
+    transform-origin: top center;
   }
 
   .viewer-row {
@@ -487,7 +534,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
+    width: 36px;
     padding: 8px 0;
     box-sizing: border-box;
     border-radius: 10px;
@@ -561,6 +608,23 @@
     background: #e5e7eb;
     color: #111;
     border-color: #e5e7eb;
+  }
+
+  .expand-btn {
+    width: 25.5px;
+    height: 25.5px;
+    color: #93c5fd;
+  }
+
+  .expand-btn:hover {
+    border-color: #60a5fa;
+    color: #eff6ff;
+    background: rgba(59, 130, 246, 0.18);
+  }
+
+  .expand-btn .material-icons-round {
+    font-size: 15px;
+    line-height: 1;
   }
 
   .vertical-slider {

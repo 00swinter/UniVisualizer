@@ -33,6 +33,8 @@
 		collapsed: boolean;
 	}
 
+type ExpandedViewMode = 'combined' | 'image' | 'histogram';
+
 	const operatorRegistry: OperatorDef[] = [
 		{ type: 'grayscale', label: 'Grayscale', component: Grayscale_Operator },
 		{ type: 'convolution', label: 'Convolution', component: Convolution_Operator },
@@ -44,6 +46,10 @@
 	let originalImage: PixelBuffer | null = $state(null);
 	let pipeline: PipelineStep[] = $state([]);
 	let selectedOperatorToAdd = $state(operatorRegistry[0].type);
+let expandedPreviewId: string | null = $state(null);
+let expandedViewMode = $state<ExpandedViewMode>('combined');
+let windowWidth = $state(1440);
+let windowHeight = $state(900);
 
 	/** Image frame heights from GradientViewer, used to size sibling histograms. */
 	let originalImageHeight = $state(0);
@@ -51,6 +57,7 @@
 
 	/** Matches GradientViewer media-box border + padding so hist tops align with the image. */
 	const IMAGE_INSET = 11;
+const ORIGINAL_PREVIEW_ID = '__original__';
 
 	function addStep(type: string, index: number | null = null) {
 		const opDef = operatorRegistry.find((op) => op.type === type);
@@ -100,7 +107,77 @@
 	function getComponentType(typeStr: string): Component<OperatorProps> | undefined {
 		return operatorRegistry.find((op) => op.type === typeStr)?.component;
 	}
+
+function openExpandedPreview(targetId: string, mode: ExpandedViewMode = 'combined') {
+	expandedPreviewId = targetId;
+	expandedViewMode = mode;
+}
+
+function closeExpandedStep() {
+	expandedPreviewId = null;
+	expandedViewMode = 'combined';
+}
+
+let expandedStep = $derived.by(() => {
+	if (!expandedPreviewId || expandedPreviewId === ORIGINAL_PREVIEW_ID) return null;
+	return pipeline.find((step) => step.id === expandedPreviewId) ?? null;
+});
+let expandedPreviewLabel = $derived(
+	expandedPreviewId === ORIGINAL_PREVIEW_ID ? 'Original Image' : expandedStep?.label ?? ''
+);
+let expandedPreviewBuffer = $derived(
+	expandedPreviewId === ORIGINAL_PREVIEW_ID ? originalImage : expandedStep?.output ?? null
+);
+
+let popupCompact = $derived(windowWidth < 1150);
+let popupImageOnly = $derived(expandedViewMode === 'image');
+let popupHistogramOnly = $derived(expandedViewMode === 'histogram');
+let popupViewerFitWidth = $derived.by(() => {
+	if (popupCompact) return Math.max(320, windowWidth - 32);
+	if (popupImageOnly) return Math.max(320, windowWidth - 32);
+	return Math.max(320, Math.floor(windowWidth - 32));
+});
+let popupViewerFitHeight = $derived.by(() => {
+	if (popupImageOnly) return Math.max(240, windowHeight - 26);
+	if (popupCompact) return Math.max(240, windowHeight - 34);
+	return Math.max(240, windowHeight - 32);
+});
+let popupImageMaxHeight = $derived.by(() => {
+	if (popupImageOnly) return Math.max(280, Math.floor(windowHeight - 52));
+	if (popupCompact) return Math.max(210, Math.floor((windowHeight - 92) * 0.48));
+	return Math.max(260, Math.floor(windowHeight - 62));
+});
+let popupImageWidth = $derived.by(() => {
+	const aspectRatio =
+		expandedPreviewBuffer && expandedPreviewBuffer.height > 0
+			? expandedPreviewBuffer.width / expandedPreviewBuffer.height
+			: 1;
+	const heightLimitedWidth = Math.floor(popupImageMaxHeight * aspectRatio);
+
+	if (popupCompact) {
+		return Math.max(280, Math.min(Math.floor(windowWidth - 120), heightLimitedWidth));
+	}
+
+	if (popupImageOnly) {
+		return Math.max(320, Math.min(Math.floor(windowWidth - 132), heightLimitedWidth));
+	}
+
+	return Math.max(
+		320,
+		Math.min(
+			Math.min(Math.floor(windowWidth * 0.46), Math.floor(windowWidth - 500)),
+			heightLimitedWidth
+		)
+	);
+});
+let popupHistogramHeight = $derived.by(() => {
+	if (popupHistogramOnly) return Math.max(280, Math.floor(windowHeight - 52));
+	if (popupCompact) return Math.max(210, Math.floor((windowHeight - 92) * 0.42));
+	return Math.max(260, Math.floor(windowHeight - 62));
+});
 </script>
+
+<svelte:window bind:innerWidth={windowWidth} bind:innerHeight={windowHeight} />
 
 <div class="page-layout">
 	<div class="loader-row">
@@ -124,7 +201,11 @@
 				<div class="connector" aria-hidden="true"></div>
 
 				<div class="node image-node">
-					<GradientViewer buffer={originalImage} bind:imageHeight={originalImageHeight} />
+					<GradientViewer
+						buffer={originalImage}
+						bind:imageHeight={originalImageHeight}
+						onExpand={() => openExpandedPreview(ORIGINAL_PREVIEW_ID, 'image')}
+					/>
 				</div>
 
 				<div class="connector" aria-hidden="true"></div>
@@ -134,6 +215,7 @@
 						input={originalImage}
 						matchHeight={originalImageHeight}
 						offsetTop={IMAGE_INSET}
+						onExpand={() => openExpandedPreview(ORIGINAL_PREVIEW_ID, 'histogram')}
 					/>
 				</div>
 			</div>
@@ -167,6 +249,12 @@
 										<button class="icon-btn delete" onclick={() => removeStep(i)} title="Delete step">
 											<span class="material-icons-round">delete</span>
 										</button>
+										<button
+											class="icon-btn expand"
+											onclick={() => openExpandedPreview(step.id, 'combined')}
+											title="Expand preview">
+											<span class="material-icons-round">open_in_full</span>
+										</button>
 									</div>
 								</div>
 
@@ -186,6 +274,7 @@
 						<div class="node image-node">
 							<GradientViewer
 								buffer={step.output}
+								onExpand={() => openExpandedPreview(step.id, 'image')}
 								bind:imageHeight={
 									() => stepImageHeights[step.id] ?? 0,
 									(h) => {
@@ -202,6 +291,7 @@
 								input={step.output}
 								matchHeight={stepImageHeights[step.id] ?? 0}
 								offsetTop={IMAGE_INSET}
+								onExpand={() => openExpandedPreview(step.id, 'histogram')}
 							/>
 						</div>
 					</div>
@@ -222,6 +312,66 @@
 			</div>
 		</div>
 	</div>
+
+	{#if expandedPreviewId}
+		<div class="expand-backdrop" onclick={closeExpandedStep} role="presentation"></div>
+
+		<div
+			class="expand-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="expanded-step-title"
+		>
+			<h3 id="expanded-step-title" class="sr-only">{expandedPreviewLabel} Preview</h3>
+			<button class="expand-close" type="button" onclick={closeExpandedStep} aria-label="Close expanded preview">
+				<span class="material-icons-round">close</span>
+			</button>
+
+			{#if popupImageOnly}
+				<div class="expand-body image-only">
+					<div class="expand-image full-span">
+						<GradientViewer
+							buffer={expandedPreviewBuffer}
+							imageWidth={popupImageWidth}
+							maxImageHeight={popupImageMaxHeight}
+							fitWidth={popupViewerFitWidth}
+							fitHeight={popupViewerFitHeight}
+						/>
+					</div>
+				</div>
+			{:else if popupHistogramOnly}
+				<div class="expand-body histogram-only">
+					<div class="expand-hist full-span">
+						<Histogram
+							input={expandedPreviewBuffer}
+							width="100%"
+							matchHeight={popupHistogramHeight}
+						/>
+					</div>
+				</div>
+			{:else}
+				<div class="expand-body">
+					<div class="expand-image">
+						<GradientViewer
+							buffer={expandedPreviewBuffer}
+							imageWidth={popupImageWidth}
+							maxImageHeight={popupImageMaxHeight}
+							fitWidth={popupViewerFitWidth}
+							fitHeight={popupViewerFitHeight}
+						/>
+					</div>
+
+					<div class="expand-hist">
+						<Histogram
+							input={expandedPreviewBuffer}
+							width="100%"
+							matchHeight={popupHistogramHeight}
+						/>
+					</div>
+				</div>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -358,6 +508,11 @@
 		background: linear-gradient(180deg, rgba(239, 68, 68, 0.9), rgba(185, 28, 28, 0.9));
 		border-color: rgba(248, 113, 113, 0.9);
 		color: white;
+	}
+
+	.icon-btn.expand:hover {
+		background: linear-gradient(180deg, rgba(34, 197, 94, 0.28), rgba(22, 163, 74, 0.2));
+		border-color: rgba(74, 222, 128, 0.45);
 	}
 
 	.flow {
@@ -560,5 +715,119 @@
 		color: #888;
 		font-size: 0.8rem;
 		text-transform: uppercase;
+	}
+
+	.expand-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(4, 8, 16, 0.7);
+		backdrop-filter: blur(3px);
+		z-index: 50;
+	}
+
+	.expand-modal {
+		position: fixed;
+		inset: 0;
+		width: 100vw;
+		height: 100vh;
+		padding: 12px 16px 14px;
+		border-radius: 0;
+		background: rgba(16, 22, 32, 0.98);
+		border: none;
+		box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+		z-index: 51;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		box-sizing: border-box;
+		overflow: hidden;
+	}
+
+	.expand-close {
+		position: absolute;
+		top: 10px;
+		right: 14px;
+		z-index: 2;
+		width: 36px;
+		height: 36px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: 999px;
+		background: rgba(30, 41, 59, 0.95);
+		color: #e2e8f0;
+		display: grid;
+		place-items: center;
+		cursor: pointer;
+		padding: 0;
+	}
+
+	.expand-close:hover {
+		background: rgba(59, 130, 246, 0.24);
+		border-color: rgba(96, 165, 250, 0.45);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	.expand-body {
+		display: grid;
+		grid-template-columns: max-content clamp(280px, 32vw, 420px);
+		align-items: start;
+		justify-content: center;
+		gap: 16px;
+		height: calc(100vh - 26px);
+		min-height: 0;
+		overflow: hidden;
+		width: fit-content;
+		max-width: 100%;
+		margin: 0 auto;
+	}
+
+	.expand-image,
+	.expand-hist {
+		min-width: 0;
+	}
+
+	.expand-image {
+		display: flex;
+		justify-content: center;
+		align-items: flex-start;
+	}
+
+	.expand-hist {
+		align-self: stretch;
+	}
+
+	.expand-body.image-only,
+	.expand-body.histogram-only {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.expand-body.image-only {
+		justify-items: center;
+	}
+
+	.expand-body.histogram-only {
+		justify-items: stretch;
+	}
+
+	.full-span {
+		width: 100%;
+		max-width: 100%;
+	}
+
+	@media (max-width: 1100px) {
+		.expand-body {
+			grid-template-columns: 1fr;
+			grid-template-rows: auto minmax(0, 1fr);
+		}
 	}
 </style>

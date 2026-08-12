@@ -8,13 +8,15 @@
 		matchHeight?: number;
 		/** Top offset to align with image inside its padded media box (px). */
 		offsetTop?: number;
+		onExpand?: (() => void) | undefined;
 	}
 
 	let {
 		input,
 		width = '100%',
 		matchHeight,
-		offsetTop = 0
+		offsetTop = 0,
+		onExpand
 	}: Props = $props();
 
 	let showR = $state(true);
@@ -145,6 +147,16 @@
 				class:active={showA}
 				onclick={() => (showA = !showA)}>A</button
 			>
+			{#if onExpand}
+				<button
+					type="button"
+					class="toggle-btn expand-btn"
+					onclick={onExpand}
+					title="Expand histogram"
+				>
+					<span class="material-icons-round">open_in_full</span>
+				</button>
+			{/if}
 		</div>
 	</div>
 
@@ -263,6 +275,21 @@
 		background: #e5e7eb;
 		color: #111;
 		border-color: #e5e7eb;
+	}
+
+	.expand-btn {
+		color: #93c5fd;
+	}
+
+	.expand-btn:hover {
+		border-color: #60a5fa;
+		color: #eff6ff;
+		background: rgba(59, 130, 246, 0.18);
+	}
+
+	.expand-btn .material-icons-round {
+		font-size: 15px;
+		line-height: 1;
 	}
 
 	.graph-container {
