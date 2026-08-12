@@ -18,6 +18,8 @@
     hoveredColumnValues?: { r: number; g: number; b: number; a: number } | null;
     /** External highlight column index to draw as an indicator (e.g. from histogram hover). */
     externalHighlightColumn?: number | null;
+    /** Active histogram channels used for image correlation highlighting. */
+    externalHighlightChannels?: { r: boolean; g: boolean; b: boolean; a: boolean };
     /** Hovered image pixel RGBA, readable by siblings for histogram cross-highlighting. */
     hoveredImagePixel?: { x: number; y: number; r: number; g: number; b: number; a: number } | null;
   }
@@ -46,6 +48,7 @@
     hoveredColumnIndex = $bindable(null),
     hoveredColumnValues = $bindable(null),
     externalHighlightColumn = null,
+    externalHighlightChannels = { r: true, g: true, b: true, a: false },
     hoveredImagePixel = $bindable(null),
   }: Props = $props();
 
@@ -264,6 +267,9 @@
               bind:showA
               bind:imageHeight={displayHeight}
               bind:hoveredPixel={hoveredImagePixel}
+              histogramHighlightBin={externalHighlightColumn}
+              histogramHighlightChannels={externalHighlightChannels}
+              showHistogramMatches={true}
             >
               {#if gradientOpen}
                 <div

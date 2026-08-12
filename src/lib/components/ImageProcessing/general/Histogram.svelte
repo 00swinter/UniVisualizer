@@ -14,6 +14,8 @@
 		hoveredBin?: number | null;
 		/** External highlight bins to show as indicator lines (e.g. from gradient/image hover). */
 		externalHighlightBins?: { bin: number; color: string }[];
+		/** Visible channels, bindable so siblings can mirror histogram correlation rules. */
+		activeChannels?: { r: boolean; g: boolean; b: boolean; a: boolean };
 	}
 
 	let {
@@ -23,7 +25,8 @@
 		offsetTop = 0,
 		onExpand,
 		hoveredBin = $bindable(null),
-		externalHighlightBins = []
+		externalHighlightBins = [],
+		activeChannels = $bindable({ r: true, g: true, b: true, a: false })
 	}: Props = $props();
 
 	let showR = $state(true);
@@ -37,6 +40,10 @@
 	let histB = $state(new Uint32Array(256));
 	let histA = $state(new Uint32Array(256));
 	let overallMaxCount = $state(1);
+
+	$effect(() => {
+		activeChannels = { r: showR, g: showG, b: showB, a: showA };
+	});
 
 	function getMaxCount(data: Uint32Array): number {
 		let max = 0;
@@ -299,9 +306,6 @@
 		align-items: center;
 		gap: 8px;
 		min-width: 0;
-	}
-	.icon {
-		font-size: 1.2rem;
 	}
 	.title {
 		font-weight: bold;

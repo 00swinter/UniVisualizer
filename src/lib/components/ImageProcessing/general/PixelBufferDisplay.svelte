@@ -13,6 +13,9 @@
 		showB?: boolean;
 		showA?: boolean;
 		hoveredPixel?: { x: number; y: number; r: number; g: number; b: number; a: number } | null;
+		histogramHighlightBin?: number | null;
+		histogramHighlightChannels?: { r: boolean; g: boolean; b: boolean; a: boolean };
+		showHistogramMatches?: boolean;
 		children?: Snippet;
 	}
 
@@ -29,10 +32,14 @@
 		showB = $bindable(true),
 		showA = $bindable(false),
 		hoveredPixel = $bindable(null),
+		histogramHighlightBin = null,
+		histogramHighlightChannels = { r: true, g: true, b: true, a: false },
+		showHistogramMatches = false,
 		children
 	}: Props = $props();
 
 	let canvas: HTMLCanvasElement | undefined = $state();
+	let overlayCanvas: HTMLCanvasElement | undefined = $state();
 	let hoveredImageX = $state<number | null>(null);
 	let hoveredImageY = $state<number | null>(null);
 
@@ -125,6 +132,63 @@
 			ctx.putImageData(imageData, 0, 0);
 		}
 	});
+
+	$effect(() => {
+		if (!overlayCanvas) return;
+
+		const ctx = overlayCanvas.getContext('2d');
+		if (!ctx) return;
+
+		const width = buffer?.width ?? 0;
+		const height = buffer?.height ?? 0;
+		overlayCanvas.width = width;
+		overlayCanvas.height = height;
+		ctx.clearRect(0, 0, width, height);
+
+		if (
+			!buffer ||
+			!showHistogramMatches ||
+			histogramHighlightBin == null ||
+			width <= 0 ||
+			height <= 0
+		) {
+			return;
+		}
+
+		const matchBin = Math.max(0, Math.min(histogramHighlightBin, 255));
+		const { r: useR, g: useG, b: useB, a: useA } = histogramHighlightChannels;
+		const source = buffer.data;
+
+		ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+		ctx.fillRect(0, 0, width, height);
+
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				const index = (y * width + x) * 4;
+				const matchesR = useR && source[index] === matchBin;
+				const matchesG = useG && source[index + 1] === matchBin;
+				const matchesB = useB && source[index + 2] === matchBin;
+				const matchesA = useA && source[index + 3] === matchBin;
+
+				if (!matchesR && !matchesG && !matchesB && !matchesA) continue;
+
+				let fill = 'rgba(255, 255, 255, 0.9)';
+				const matchCount =
+					Number(matchesR) + Number(matchesG) + Number(matchesB) + Number(matchesA);
+
+				if (matchCount === 1) {
+					if (matchesR) fill = 'rgba(239, 68, 68, 0.95)';
+					else if (matchesG) fill = 'rgba(34, 197, 94, 0.95)';
+					else if (matchesB) fill = 'rgba(59, 130, 246, 0.95)';
+					else fill = 'rgba(229, 231, 235, 0.95)';
+				}
+
+				ctx.clearRect(x, y, 1, 1);
+				ctx.fillStyle = fill;
+				ctx.fillRect(x, y, 1, 1);
+			}
+		}
+	});
 </script>
 
 <div class="pixel-display" class:tools-hidden={!showTools}>
@@ -176,6 +240,11 @@
 				style:height={!fixedWidth && fixedHeight ? `${fixedHeight}px` : 'auto'}
 				style:aspect-ratio="{buffer.width} / {buffer.height}"
 				style:display="block"
+			></canvas>
+			<canvas
+				bind:this={overlayCanvas}
+				class="image-highlight-overlay"
+				aria-hidden="true"
 			></canvas>
 			<div
 				class="image-hover-layer"
@@ -297,6 +366,16 @@
 		z-index: 5;
 	}
 
+	.image-highlight-overlay {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		z-index: 4;
+		pointer-events: none;
+		image-rendering: pixelated;
+	}
+
 	.image-hover-info {
 		position: absolute;
 		top: 6px;
@@ -345,6 +424,10 @@
 			linear-gradient(45deg, transparent 75%, #333 75%),
 			linear-gradient(-45deg, transparent 75%, #333 75%);
 		background-size: 20px 20px;
+	}
+
+	.image-highlight-overlay {
+		background: transparent;
 	}
 
 	.empty-state {
