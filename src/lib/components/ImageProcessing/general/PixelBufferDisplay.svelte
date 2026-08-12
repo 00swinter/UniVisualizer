@@ -16,6 +16,7 @@
 		histogramHighlightBin?: number | null;
 		histogramHighlightChannels?: { r: boolean; g: boolean; b: boolean; a: boolean };
 		showHistogramMatches?: boolean;
+		gradientHighlightColumn?: number | null;
 		children?: Snippet;
 	}
 
@@ -35,6 +36,7 @@
 		histogramHighlightBin = null,
 		histogramHighlightChannels = { r: true, g: true, b: true, a: false },
 		showHistogramMatches = false,
+		gradientHighlightColumn = null,
 		children
 	}: Props = $props();
 
@@ -145,48 +147,50 @@
 		overlayCanvas.height = height;
 		ctx.clearRect(0, 0, width, height);
 
-		if (
-			!buffer ||
-			!showHistogramMatches ||
-			histogramHighlightBin == null ||
-			width <= 0 ||
-			height <= 0
-		) {
+		if (!buffer || width <= 0 || height <= 0) {
 			return;
 		}
 
-		const matchBin = Math.max(0, Math.min(histogramHighlightBin, 255));
-		const { r: useR, g: useG, b: useB, a: useA } = histogramHighlightChannels;
-		const source = buffer.data;
+		if (showHistogramMatches && histogramHighlightBin != null) {
+			const matchBin = Math.max(0, Math.min(histogramHighlightBin, 255));
+			const { r: useR, g: useG, b: useB, a: useA } = histogramHighlightChannels;
+			const source = buffer.data;
 
-		ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-		ctx.fillRect(0, 0, width, height);
+			ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+			ctx.fillRect(0, 0, width, height);
 
-		for (let y = 0; y < height; y++) {
-			for (let x = 0; x < width; x++) {
-				const index = (y * width + x) * 4;
-				const matchesR = useR && source[index] === matchBin;
-				const matchesG = useG && source[index + 1] === matchBin;
-				const matchesB = useB && source[index + 2] === matchBin;
-				const matchesA = useA && source[index + 3] === matchBin;
+			for (let y = 0; y < height; y++) {
+				for (let x = 0; x < width; x++) {
+					const index = (y * width + x) * 4;
+					const matchesR = useR && source[index] === matchBin;
+					const matchesG = useG && source[index + 1] === matchBin;
+					const matchesB = useB && source[index + 2] === matchBin;
+					const matchesA = useA && source[index + 3] === matchBin;
 
-				if (!matchesR && !matchesG && !matchesB && !matchesA) continue;
+					if (!matchesR && !matchesG && !matchesB && !matchesA) continue;
 
-				let fill = 'rgba(255, 255, 255, 0.9)';
-				const matchCount =
-					Number(matchesR) + Number(matchesG) + Number(matchesB) + Number(matchesA);
+					let fill = 'rgba(255, 255, 255, 0.9)';
+					const matchCount =
+						Number(matchesR) + Number(matchesG) + Number(matchesB) + Number(matchesA);
 
-				if (matchCount === 1) {
-					if (matchesR) fill = 'rgba(239, 68, 68, 0.95)';
-					else if (matchesG) fill = 'rgba(34, 197, 94, 0.95)';
-					else if (matchesB) fill = 'rgba(59, 130, 246, 0.95)';
-					else fill = 'rgba(229, 231, 235, 0.95)';
+					if (matchCount === 1) {
+						if (matchesR) fill = 'rgba(239, 68, 68, 0.95)';
+						else if (matchesG) fill = 'rgba(34, 197, 94, 0.95)';
+						else if (matchesB) fill = 'rgba(59, 130, 246, 0.95)';
+						else fill = 'rgba(229, 231, 235, 0.95)';
+					}
+
+					ctx.clearRect(x, y, 1, 1);
+					ctx.fillStyle = fill;
+					ctx.fillRect(x, y, 1, 1);
 				}
-
-				ctx.clearRect(x, y, 1, 1);
-				ctx.fillStyle = fill;
-				ctx.fillRect(x, y, 1, 1);
 			}
+		}
+
+		if (gradientHighlightColumn != null) {
+			const x = Math.max(0, Math.min(Math.round(gradientHighlightColumn), width - 1));
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+			ctx.fillRect(x, 0, 1, height);
 		}
 	});
 </script>

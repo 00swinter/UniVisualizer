@@ -311,13 +311,36 @@
     <div class="step-row">
       <div class="flow">
         <div class="node op-node">
-          <div class="step-meta step-meta-inline">
-            <span class="step-badge">1</span>
-          </div>
+          <div class="operator-shell">
+            <div
+              class="step-meta step-meta-side"
+              style:height={originalImageHeight ? `${originalImageHeight}px` : null}
+            >
+              <span class="step-badge">1</span>
+              <div class="step-controls">
+                <button class="icon-btn" disabled title="Move up">
+                  <span class="material-icons-round">keyboard_arrow_up</span>
+                </button>
+                <button class="icon-btn delete" disabled title="Delete step">
+                  <span class="material-icons-round">delete</span>
+                </button>
+                <button
+                  class="icon-btn expand"
+                  onclick={() => openExpandedPreview(ORIGINAL_PREVIEW_ID, "combined")}
+                  title="Expand preview"
+                >
+                  <span class="material-icons-round">open_in_full</span>
+                </button>
+                <button class="icon-btn" disabled title="Move down">
+                  <span class="material-icons-round">keyboard_arrow_down</span>
+                </button>
+              </div>
+            </div>
 
-          <div class="op-bar static">
-            <span class="material-icons-round">image</span>
-            <span class="op-title">Original Image</span>
+            <div class="op-bar static">
+              <span class="material-icons-round">image</span>
+              <span class="op-title">Original Image</span>
+            </div>
           </div>
         </div>
 
@@ -383,17 +406,6 @@
                       >
                     </button>
                     <button
-                      class="icon-btn"
-                      onclick={(event) =>
-                        moveStep(i, 1, event.currentTarget as HTMLButtonElement)}
-                      disabled={i === pipeline.length - 1}
-                      title="Move down"
-                    >
-                      <span class="material-icons-round"
-                        >keyboard_arrow_down</span
-                      >
-                    </button>
-                    <button
                       class="icon-btn delete"
                       onclick={() => removeStep(i)}
                       title="Delete step"
@@ -406,6 +418,17 @@
                       title="Expand preview"
                     >
                       <span class="material-icons-round">open_in_full</span>
+                    </button>
+                    <button
+                      class="icon-btn"
+                      onclick={(event) =>
+                        moveStep(i, 1, event.currentTarget as HTMLButtonElement)}
+                      disabled={i === pipeline.length - 1}
+                      title="Move down"
+                    >
+                      <span class="material-icons-round"
+                        >keyboard_arrow_down</span
+                      >
                     </button>
                   </div>
                 </div>
@@ -703,8 +726,11 @@
   .step-controls {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    justify-content: center;
     align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    align-self: stretch;
   }
 
   .icon-btn {

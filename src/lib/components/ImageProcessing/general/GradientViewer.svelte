@@ -34,6 +34,8 @@
   const OPEN_SIDE_EXTRA_WIDTH = 46;
   const CHART_HEIGHT = 120;
   const STACK_GAP = 10;
+  const ROW_STRIP_HEIGHT = 18;
+  const ROW_STRIP_GAP = 8;
   const MEDIA_BOX_VERTICAL_PADDING = 22;
 
   let {
@@ -90,7 +92,8 @@
 
     if (fitHeight != null && fitHeight > 0) {
       const chromeHeight =
-        MEDIA_BOX_VERTICAL_PADDING + (gradientOpen ? CHART_HEIGHT + STACK_GAP : 0);
+        MEDIA_BOX_VERTICAL_PADDING +
+        (gradientOpen ? ROW_STRIP_HEIGHT + ROW_STRIP_GAP + CHART_HEIGHT + STACK_GAP : 0);
       const maxImageHeightFromViewport = Math.floor(fitHeight - chromeHeight);
       const maxWidthFromHeight = Math.floor((buffer.width / buffer.height) * maxImageHeightFromViewport);
       nextWidth = Math.min(nextWidth, maxWidthFromHeight);
@@ -102,7 +105,9 @@
     resolvedWidth + MEDIA_BOX_EXTRA_WIDTH + (gradientOpen ? OPEN_SIDE_EXTRA_WIDTH : CLOSED_SIDE_EXTRA_WIDTH),
   );
   let estimatedViewerHeight = $derived(
-    displayHeight + MEDIA_BOX_VERTICAL_PADDING + (gradientOpen ? CHART_HEIGHT + STACK_GAP : 0),
+    displayHeight +
+      MEDIA_BOX_VERTICAL_PADDING +
+      (gradientOpen ? ROW_STRIP_HEIGHT + ROW_STRIP_GAP + CHART_HEIGHT + STACK_GAP : 0),
   );
   let resolvedScale = $derived(Math.max(0.2, Math.min(1, scale)));
 
@@ -267,6 +272,7 @@
               bind:showA
               bind:imageHeight={displayHeight}
               bind:hoveredPixel={hoveredImagePixel}
+              gradientHighlightColumn={hoveredColumnIndex}
               histogramHighlightBin={externalHighlightColumn}
               histogramHighlightChannels={externalHighlightChannels}
               showHistogramMatches={true}
@@ -334,6 +340,25 @@
 
           {#if gradientOpen}
             <div class="chart-slot">
+              {#if rowData && rowData.length > 0}
+                <div
+                  class="row-pixel-strip"
+                  role="img"
+                  aria-label={`Pixels in image row ${rowIndex}`}
+                  style={`grid-template-columns: repeat(${rowData.length}, minmax(1px, 1fr));`}
+                  onmousemove={updateHoveredColumn}
+                  onmouseleave={clearHoveredColumn}
+                >
+                  {#each rowData as pixel, index (index)}
+                    <div
+                      class="row-pixel"
+                      class:hovered={hoveredColumnIndex === index}
+                      style={`background: rgba(${pixel.r}, ${pixel.g}, ${pixel.b}, ${pixel.a / 255})`}
+                      title={`x=${index}, y=${rowIndex}, rgba(${pixel.r}, ${pixel.g}, ${pixel.b}, ${pixel.a})`}
+                    ></div>
+                  {/each}
+                </div>
+              {/if}
               <div
                 class="chart-body"
                 role="img"
@@ -520,11 +545,13 @@
   }
 
   .chart-slot {
+    --row-strip-gap: 8px;
     grid-area: chart;
     width: var(--media-w);
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    gap: var(--row-strip-gap);
   }
 
   .img-channels,
@@ -552,6 +579,25 @@
     border-radius: 4px;
     overflow: hidden;
     background: #181818;
+  }
+
+  .row-pixel-strip {
+    width: var(--media-w);
+    height: 18px;
+    display: grid;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    overflow: hidden;
+    background: #111;
+  }
+
+  .row-pixel {
+    min-width: 1px;
+    height: 100%;
+  }
+
+  .row-pixel.hovered {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.9);
   }
 
   /* Overlay labels so the plot stays full image width */
