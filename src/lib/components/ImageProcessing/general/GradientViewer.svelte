@@ -12,6 +12,14 @@
     /** Outer image-frame height (incl. borders); bindable for sibling layout. */
     imageHeight?: number;
     onExpand?: (() => void) | undefined;
+    /** Currently hovered column index, bindable so siblings can read it. */
+    hoveredColumnIndex?: number | null;
+    /** The RGBA values at the hovered column, readable by siblings. */
+    hoveredColumnValues?: { r: number; g: number; b: number; a: number } | null;
+    /** External highlight column index to draw as an indicator (e.g. from histogram hover). */
+    externalHighlightColumn?: number | null;
+    /** Hovered image pixel RGBA, readable by siblings for histogram cross-highlighting. */
+    hoveredImagePixel?: { x: number; y: number; r: number; g: number; b: number; a: number } | null;
   }
 
   type Channel = "r" | "g" | "b" | "a";
@@ -35,11 +43,14 @@
     fitHeight,
     imageHeight = $bindable(0),
     onExpand,
+    hoveredColumnIndex = $bindable(null),
+    hoveredColumnValues = $bindable(null),
+    externalHighlightColumn = null,
+    hoveredImagePixel = $bindable(null),
   }: Props = $props();
 
   let gradientOpen = $state(false);
   let selectionPct = $state(0.5);
-  let hoveredColumnIndex = $state<number | null>(null);
 
   let chartCanvas: HTMLCanvasElement | undefined = $state();
   let displayHeight = $state(200);
@@ -128,6 +139,10 @@
     return rowData[Math.max(0, Math.min(hoveredColumnIndex, rowData.length - 1))] ?? null;
   });
 
+  $effect(() => {
+    hoveredColumnValues = hoveredColumn;
+  });
+
   let hoveredColumnLines = $derived.by((): HoverValueLine[] => {
     if (!hoveredColumn || hoveredColumnIndex == null) return [];
 
@@ -207,6 +222,18 @@
       if (chartShowB) drawGraphLine("#3b82f6", "b");
       if (chartShowA) drawGraphLine("#e5e7eb", "a");
 
+      if (externalHighlightColumn != null && externalHighlightColumn >= 0 && externalHighlightColumn < rowData.length) {
+        const x = getX(externalHighlightColumn);
+        ctx.strokeStyle = "rgba(255, 200, 50, 0.6)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 2]);
+        ctx.beginPath();
+        ctx.moveTo(x + 0.5, 0);
+        ctx.lineTo(x + 0.5, h);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
       if (hoveredColumnIndex != null) {
         const x = getX(Math.max(0, Math.min(hoveredColumnIndex, rowData.length - 1)));
         ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
@@ -236,6 +263,7 @@
               bind:showB
               bind:showA
               bind:imageHeight={displayHeight}
+              bind:hoveredPixel={hoveredImagePixel}
             >
               {#if gradientOpen}
                 <div

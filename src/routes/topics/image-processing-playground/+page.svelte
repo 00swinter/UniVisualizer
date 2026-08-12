@@ -58,6 +58,32 @@ let windowHeight = $state(900);
 	let originalImageHeight = $state(0);
 	let stepImageHeights: Record<string, number> = $state({});
 
+	/** Cross-component hover state for original image. */
+	let origHistBin = $state<number | null>(null);
+	let origGradCol = $state<number | null>(null);
+	let origGradValues = $state<{ r: number; g: number; b: number; a: number } | null>(null);
+	let origImagePixel = $state<{ x: number; y: number; r: number; g: number; b: number; a: number } | null>(null);
+	/** Cross-component hover state per pipeline step. */
+	let stepHistBins: Record<string, number | null> = $state({});
+	let stepGradCols: Record<string, number | null> = $state({});
+	let stepGradValues: Record<string, { r: number; g: number; b: number; a: number } | null> = $state({});
+	let stepImagePixels: Record<string, { x: number; y: number; r: number; g: number; b: number; a: number } | null> = $state({});
+
+	function histHighlightBins(
+		gradVals: { r: number; g: number; b: number; a: number } | null,
+		imgPixel: { r: number; g: number; b: number; a: number } | null
+	): { bin: number; color: string }[] {
+		const vals = gradVals ?? imgPixel;
+		if (!vals) return [];
+		const bins: { bin: number; color: string }[] = [
+			{ bin: vals.r, color: '#ef4444' },
+			{ bin: vals.g, color: '#22c55e' },
+			{ bin: vals.b, color: '#3b82f6' },
+		];
+		const seen = new Set<number>();
+		return bins.filter(b => { if (seen.has(b.bin)) return false; seen.add(b.bin); return true; });
+	}
+
 	/** Matches GradientViewer media-box border + padding so hist tops align with the image. */
 	const IMAGE_INSET = 11;
 const ORIGINAL_PREVIEW_ID = '__original__';
@@ -207,6 +233,10 @@ let popupHistogramHeight = $derived.by(() => {
 					<GradientViewer
 						buffer={originalImage}
 						bind:imageHeight={originalImageHeight}
+						bind:hoveredColumnIndex={origGradCol}
+						bind:hoveredColumnValues={origGradValues}
+						bind:hoveredImagePixel={origImagePixel}
+						externalHighlightColumn={origHistBin}
 						onExpand={() => openExpandedPreview(ORIGINAL_PREVIEW_ID, 'image')}
 					/>
 				</div>
@@ -218,6 +248,8 @@ let popupHistogramHeight = $derived.by(() => {
 						input={originalImage}
 						matchHeight={originalImageHeight}
 						offsetTop={IMAGE_INSET}
+						bind:hoveredBin={origHistBin}
+						externalHighlightBins={histHighlightBins(origGradValues, origImagePixel)}
 						onExpand={() => openExpandedPreview(ORIGINAL_PREVIEW_ID, 'histogram')}
 					/>
 				</div>
@@ -285,6 +317,19 @@ let popupHistogramHeight = $derived.by(() => {
 										stepImageHeights[step.id] = h;
 									}
 								}
+								bind:hoveredColumnIndex={
+									() => stepGradCols[step.id] ?? null,
+									(v) => { stepGradCols[step.id] = v; }
+								}
+								bind:hoveredColumnValues={
+									() => stepGradValues[step.id] ?? null,
+									(v) => { stepGradValues[step.id] = v; }
+								}
+								bind:hoveredImagePixel={
+									() => stepImagePixels[step.id] ?? null,
+									(v) => { stepImagePixels[step.id] = v; }
+								}
+								externalHighlightColumn={stepHistBins[step.id] ?? null}
 							/>
 						</div>
 
@@ -295,6 +340,11 @@ let popupHistogramHeight = $derived.by(() => {
 								input={step.output}
 								matchHeight={stepImageHeights[step.id] ?? 0}
 								offsetTop={IMAGE_INSET}
+								bind:hoveredBin={
+									() => stepHistBins[step.id] ?? null,
+									(v) => { stepHistBins[step.id] = v; }
+								}
+								externalHighlightBins={histHighlightBins(stepGradValues[step.id] ?? null, stepImagePixels[step.id] ?? null)}
 								onExpand={() => openExpandedPreview(step.id, 'histogram')}
 							/>
 						</div>

@@ -12,6 +12,7 @@
 		showG?: boolean;
 		showB?: boolean;
 		showA?: boolean;
+		hoveredPixel?: { x: number; y: number; r: number; g: number; b: number; a: number } | null;
 		children?: Snippet;
 	}
 
@@ -27,6 +28,7 @@
 		showG = $bindable(true),
 		showB = $bindable(true),
 		showA = $bindable(false),
+		hoveredPixel = $bindable(null),
 		children
 	}: Props = $props();
 
@@ -51,6 +53,10 @@
 			b: buffer.data[index + 2],
 			a: buffer.data[index + 3]
 		};
+	});
+
+	$effect(() => {
+		hoveredPixel = hoveredImagePixel;
 	});
 
 	let hoveredImageLines = $derived.by((): HoverValueLine[] => {

@@ -10,6 +10,10 @@
 		/** Top offset to align with image inside its padded media box (px). */
 		offsetTop?: number;
 		onExpand?: (() => void) | undefined;
+		/** Currently hovered bin index (0-255), bindable so siblings can read it. */
+		hoveredBin?: number | null;
+		/** External highlight bins to show as indicator lines (e.g. from gradient/image hover). */
+		externalHighlightBins?: { bin: number; color: string }[];
 	}
 
 	let {
@@ -17,7 +21,9 @@
 		width = '100%',
 		matchHeight,
 		offsetTop = 0,
-		onExpand
+		onExpand,
+		hoveredBin = $bindable(null),
+		externalHighlightBins = []
 	}: Props = $props();
 
 	let showR = $state(true);
@@ -31,7 +37,6 @@
 	let histB = $state(new Uint32Array(256));
 	let histA = $state(new Uint32Array(256));
 	let overallMaxCount = $state(1);
-	let hoveredBin = $state<number | null>(null);
 
 	function getMaxCount(data: Uint32Array): number {
 		let max = 0;
@@ -234,6 +239,20 @@
 					class="hover-line"
 				/>
 			{/if}
+
+			{#each externalHighlightBins as hl (hl.color + hl.bin)}
+				<line
+					x1={((hl.bin + 0.5) / 256) * 100}
+					y1="0"
+					x2={((hl.bin + 0.5) / 256) * 100}
+					y2="100"
+					stroke={hl.color}
+					stroke-width="1"
+					vector-effect="non-scaling-stroke"
+					stroke-dasharray="3 2"
+					opacity="0.8"
+				/>
+			{/each}
 		</svg>
 	</div>
 
