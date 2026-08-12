@@ -14,6 +14,7 @@
     output?: PixelBuffer | null;
     enabled?: boolean;
     collapsed?: boolean;
+    matchHeight?: number;
   }
 
   let {
@@ -21,6 +22,7 @@
     output = $bindable(null),
     enabled = $bindable(true),
     collapsed = $bindable(true),
+    matchHeight = 0,
   }: Props = $props();
 
   let channelMode = $state<ChannelMode>("luminance");
@@ -106,7 +108,7 @@
   });
 </script>
 
-<OperatorBase title="Threshold" icon="tonality" bind:enabled bind:collapsed {onReset}>
+<OperatorBase title="Threshold" icon="tonality" bind:enabled bind:collapsed {matchHeight} {onReset}>
   <div class="controls">
     <RadioSelect
       options={[

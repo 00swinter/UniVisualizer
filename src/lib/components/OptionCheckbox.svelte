@@ -4,17 +4,19 @@
 		checked?: boolean;
 		id?: string;
 		labelPosition?: 'top' | 'left';
+		hoverText?: string;
 	}
 
 	let {
 		label,
 		checked = $bindable(false),
 		id = Math.random().toString(36).substring(7),
-		labelPosition = 'top'
+		labelPosition = 'top',
+		hoverText
 	}: Props = $props();
 </script>
 
-<div class="option_group checkbox" class:horizontal={labelPosition === 'left'}>
+<div class="option_group checkbox" class:horizontal={labelPosition === 'left'} data-tooltip={hoverText ?? ''}>
 	{#if label}
 		<label for={id}>{label}</label>
 	{/if}
@@ -25,7 +27,7 @@
 		class:checked
 		role="checkbox"
 		aria-checked={checked}
-		aria-label={label}
+		aria-label={hoverText ?? label}
 		onclick={() => (checked = !checked)}
 	>
 		{#if checked}
@@ -97,5 +99,28 @@
 	.check-icon {
 		font-size: 0.85rem;
 		line-height: 1;
+	}
+
+	.option_group[data-tooltip]:not([data-tooltip='']) {
+		position: relative;
+	}
+
+	.option_group[data-tooltip]:not([data-tooltip='']):hover::after {
+		content: attr(data-tooltip);
+		position: absolute;
+		top: 100%;
+		left: 50%;
+		transform: translateX(-50%);
+		margin-top: 4px;
+		background: #1e252e;
+		color: #cbd5e1;
+		font: 400 0.65rem/1.3 'Inter', sans-serif;
+		padding: 4px 8px;
+		border-radius: 4px;
+		white-space: nowrap;
+		pointer-events: none;
+		z-index: 100;
+		border: 1px solid #343d4a;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 	}
 </style>

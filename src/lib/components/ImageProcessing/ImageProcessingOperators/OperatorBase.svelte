@@ -1,12 +1,13 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { fade, slide } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		title?: string;
 		icon?: string;
 		enabled?: boolean;
 		collapsed?: boolean;
+		matchHeight?: number;
 		onReset?: () => void;
 		children?: Snippet;
 	}
@@ -16,6 +17,7 @@
 		icon = 'build',
 		enabled = $bindable(true),
 		collapsed = $bindable(true),
+		matchHeight = 0,
 		onReset,
 		children
 	}: Props = $props();
@@ -29,7 +31,12 @@
 	}
 </script>
 
-<div class="operator_container" class:bypassed={!enabled} class:collapsed>
+<div
+	class="operator_container"
+	class:bypassed={!enabled}
+	class:collapsed
+	style:height={collapsed && matchHeight ? `${matchHeight}px` : null}
+>
 	<div class="header_div">
 		<div class="title_container">
 			<button
@@ -68,15 +75,13 @@
 		{/if}
 	</div>
 
-	{#if !collapsed}
-		<div class="content_shell" transition:slide={{ duration: 180 }}>
-			<hr class="divider" />
+	<div class="content_shell" class:collapsed_content={collapsed}>
+		<hr class="divider" />
 
-			<div class="content">
-				{@render children?.()}
-			</div>
+		<div class="content">
+			{@render children?.()}
 		</div>
-	{/if}
+	</div>
 </div>
 
 <style>
@@ -108,6 +113,19 @@
 		min-width: 160px;
 		padding: 6px 8px;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		box-sizing: border-box;
+	}
+
+	.collapsed_content {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
+		scrollbar-width: thin;
+		scrollbar-color: rgba(59, 130, 246, 0.4) rgba(255, 255, 255, 0.05);
 	}
 
 	.bypassed {
@@ -131,6 +149,7 @@
 
 	.operator_container.collapsed .header_div {
 		margin-bottom: 0;
+		flex-shrink: 0;
 	}
 
 	.title_container {

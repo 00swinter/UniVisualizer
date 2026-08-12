@@ -10,6 +10,7 @@
 		max?: number;
 		step?: number;
 		color?: string;
+		editable?: boolean;
 	}
 
 	let {
@@ -20,8 +21,21 @@
 		min = 0,
 		max = 10,
 		step = 1,
-		color = 'white'
+		color = 'white',
+		editable = false
 	}: Props = $props();
+
+	function onReadoutInput(e: Event) {
+		const el = e.currentTarget as HTMLInputElement;
+		const parsed = parseFloat(el.value);
+		if (!Number.isNaN(parsed)) {
+			value = Math.min(max, Math.max(min, parsed));
+		}
+	}
+
+	function onReadoutKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+	}
 </script>
 
 <div class="param-container" style="--accent-color: {color}">
@@ -30,7 +44,20 @@
         <span class="label">{label}</span>
         
         {#if (type === 'range' || type === 'display') && typeof value === 'number'}
-            <span class="value-readout">{Math.round(value * 100) / 100}{unit}</span>
+            {#if editable}
+                <input
+                    type="number"
+                    class="value-readout editable"
+                    value={Math.round(value * 100) / 100}
+                    {min}
+                    {max}
+                    {step}
+                    onchange={onReadoutInput}
+                    onkeydown={onReadoutKeydown}
+                />
+            {:else}
+                <span class="value-readout">{Math.round(value * 100) / 100}{unit}</span>
+            {/if}
         {/if}
     </div>
 
@@ -83,7 +110,28 @@
         padding-left: 15px;
         padding-right: 15px;
         margin-left: 8px;
+    }
 
+    .value-readout.editable {
+        background: transparent;
+        font-size: inherit;
+        font-weight: inherit;
+        width: 5.5em;
+        text-align: center;
+        outline: none;
+        -moz-appearance: textfield;
+        cursor: text;
+    }
+
+    .value-readout.editable::-webkit-inner-spin-button,
+    .value-readout.editable::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    .value-readout.editable:focus {
+        border-color: white;
+        background: rgba(255, 255, 255, 0.06);
     }
 
     /* Range Slider — cross-browser (WebKit + Firefox) */

@@ -10,6 +10,7 @@
 		output?: PixelBuffer | null;
 		enabled?: boolean;
 		collapsed?: boolean;
+		matchHeight?: number;
 	}
 
 	type PresetId =
@@ -115,7 +116,8 @@
 		input,
 		output = $bindable(null),
 		enabled = $bindable(true),
-		collapsed = $bindable(true)
+		collapsed = $bindable(true),
+		matchHeight = 0
 	}: Props = $props();
 
 	let kernel = $state([...PRESETS.identity] as number[]);
@@ -225,7 +227,7 @@
 	});
 </script>
 
-<OperatorBase title="Convolution" icon="grid_on" bind:enabled bind:collapsed {onReset}>
+<OperatorBase title="Convolution" icon="grid_on" bind:enabled bind:collapsed {matchHeight} {onReset}>
 	<div class="kernel-ui">
 		<div class="kernel-grid">
 			{#each kernel as _, index (index)}

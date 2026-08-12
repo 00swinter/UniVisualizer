@@ -10,6 +10,7 @@
 		output?: PixelBuffer | null;
 		enabled?: boolean;
 		collapsed?: boolean;
+		matchHeight?: number;
 	}
 
 	type MorphMode = 'dilation' | 'erosion' | 'opening' | 'closing';
@@ -74,7 +75,8 @@
 		input,
 		output = $bindable(null),
 		enabled = $bindable(true),
-		collapsed = $bindable(true)
+		collapsed = $bindable(true),
+		matchHeight = 0
 	}: Props = $props();
 
 	let mode = $state<MorphMode>('dilation');
@@ -213,7 +215,7 @@
 	});
 </script>
 
-<OperatorBase title="Morphology" icon="blur_on" bind:enabled bind:collapsed {onReset}>
+<OperatorBase title="Morphology" icon="blur_on" bind:enabled bind:collapsed {matchHeight} {onReset}>
 	<div class="controls">
 		<OptionSelect label="Operation" bind:value={mode} options={MODE_OPTIONS} />
 

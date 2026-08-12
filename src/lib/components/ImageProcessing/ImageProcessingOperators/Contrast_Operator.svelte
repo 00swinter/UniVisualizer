@@ -11,6 +11,7 @@
 		output?: PixelBuffer | null;
 		enabled?: boolean;
 		collapsed?: boolean;
+		matchHeight?: number;
 	}
 
 	type Channel = 'all' | 'red' | 'green' | 'blue';
@@ -21,7 +22,8 @@
 		input,
 		output = $bindable(null),
 		enabled = $bindable(true),
-		collapsed = $bindable(true)
+		collapsed = $bindable(true),
+		matchHeight = 0
 	}: Props = $props();
 
 	let controlMode = $state<ControlMode>('linear');
@@ -403,7 +405,7 @@
 	});
 </script>
 
-<OperatorBase title="Contrast" icon="contrast" bind:enabled bind:collapsed {onReset}>
+<OperatorBase title="Contrast" icon="contrast" bind:enabled bind:collapsed {matchHeight} {onReset}>
 	<div class="controls">
 		<RadioSelect
 			options={[

@@ -47,18 +47,25 @@
     }
 
     .custom_select {
-        background: #161b22;
+        appearance: none;
+        -webkit-appearance: none;
+        background: #161b22 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 8px center;
         border: 1px solid #343d4a;
         color: #f1f5f9;
         border-radius: 5px;
-        padding: 6px 8px;
+        padding: 6px 28px 6px 8px;
         font-size: 0.8rem;
         cursor: pointer;
         outline: none;
-        transition: border-color 0.15s;
+        transition: border-color 0.15s, background-color 0.15s;
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
+    }
+
+    .custom_select:hover {
+        border-color: #4b5563;
+        background-color: #1c2330;
     }
 
     .custom_select:focus {

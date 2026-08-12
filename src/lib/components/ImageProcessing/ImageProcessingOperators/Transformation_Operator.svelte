@@ -10,6 +10,7 @@
 		output?: PixelBuffer | null;
 		enabled?: boolean;
 		collapsed?: boolean;
+		matchHeight?: number;
 	}
 
 	type ResizeMode = 'crop' | 'fit';
@@ -22,7 +23,8 @@
 		input,
 		output = $bindable(null),
 		enabled = $bindable(true),
-		collapsed = $bindable(true)
+		collapsed = $bindable(true),
+		matchHeight = 0
 	}: Props = $props();
 
 	let rotation = $state(0);
@@ -208,7 +210,7 @@
 	});
 </script>
 
-<OperatorBase title="Transformation" icon="transform" bind:enabled bind:collapsed {onReset}>
+<OperatorBase title="Transformation" icon="transform" bind:enabled bind:collapsed {matchHeight} {onReset}>
 	<div class="controls">
 		<RadioSelect
 			options={[
@@ -271,8 +273,9 @@
 			<div class="dial-value">{Math.round(rotation)}deg</div>
 		</div>
 
-		<Parameter
-			type="range"
+		<div class="param-row">
+			<Parameter
+				type="range"
 			label="Rotation"
 			bind:value={rotation}
 			min={-180}
@@ -280,9 +283,15 @@
 			step={1}
 			unit="°"
 			color={Colors.yellow()}
-		/>
-		<Parameter
-			type="range"
+			editable
+			/>
+			<button type="button" class="mini-reset" onclick={() => (rotation = 0)} title="Reset rotation">
+				<span class="material-icons-round">replay</span>
+			</button>
+		</div>
+		<div class="param-row">
+			<Parameter
+				type="range"
 			label="TX"
 			bind:value={translationX}
 			min={-300}
@@ -290,9 +299,15 @@
 			step={1}
 			unit="px"
 			color={Colors.red()}
-		/>
-		<Parameter
-			type="range"
+			editable
+			/>
+			<button type="button" class="mini-reset" onclick={() => (translationX = 0)} title="Reset TX">
+				<span class="material-icons-round">replay</span>
+			</button>
+		</div>
+		<div class="param-row">
+			<Parameter
+				type="range"
 			label="TY"
 			bind:value={translationY}
 			min={-300}
@@ -300,13 +315,19 @@
 			step={1}
 			unit="px"
 			color={Colors.green()}
-		/>
+			editable
+			/>
+			<button type="button" class="mini-reset" onclick={() => (translationY = 0)} title="Reset TY">
+				<span class="material-icons-round">replay</span>
+			</button>
+		</div>
 
 		<div class="scale-row">
 			<div class="scale-sliders">
-				<Parameter
-					type="range"
-					label="SX"
+				<div class="param-row">
+					<Parameter
+						type="range"
+						label="SX"
 					bind:value={
 						() => scaleX,
 						(v) => onScaleXChange(v as number)
@@ -315,10 +336,16 @@
 					max={3}
 					step={0.01}
 					color={Colors.blue()}
-				/>
-				<Parameter
-					type="range"
-					label="SY"
+					editable
+					/>
+					<button type="button" class="mini-reset" onclick={() => onScaleXChange(1)} title="Reset SX">
+						<span class="material-icons-round">replay</span>
+					</button>
+				</div>
+				<div class="param-row">
+					<Parameter
+						type="range"
+						label="SY"
 					bind:value={
 						() => scaleY,
 						(v) => onScaleYChange(v as number)
@@ -327,7 +354,12 @@
 					max={3}
 					step={0.01}
 					color={Colors.purple()}
-				/>
+					editable
+					/>
+					<button type="button" class="mini-reset" onclick={() => onScaleYChange(1)} title="Reset SY">
+						<span class="material-icons-round">replay</span>
+					</button>
+				</div>
 			</div>
 			<button
 				type="button"
@@ -577,5 +609,45 @@
 
 	.link-btn .material-icons-round {
 		font-size: 15px;
+	}
+
+	.param-row {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.param-row :global(.param-container) {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.mini-reset {
+		width: 22px;
+		height: 22px;
+		border-radius: 5px;
+		border: 1px solid #343d4a;
+		background: #161b22;
+		color: #64748b;
+		cursor: pointer;
+		display: grid;
+		place-items: center;
+		padding: 0;
+		flex-shrink: 0;
+		transition: color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+	}
+
+	.mini-reset:hover {
+		border-color: #ef4444;
+		color: #f87171;
+	}
+
+	.mini-reset:active {
+		transform: scale(0.85) rotate(-30deg);
+		color: #ef4444;
+	}
+
+	.mini-reset .material-icons-round {
+		font-size: 13px;
 	}
 </style>

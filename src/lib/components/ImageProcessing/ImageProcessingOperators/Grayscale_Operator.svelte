@@ -18,13 +18,15 @@
 		output?: PixelBuffer | null;
 		enabled?: boolean;
 		collapsed?: boolean;
+		matchHeight?: number;
 	}
 
 	let {
 		input,
 		output = $bindable(null),
 		enabled = $bindable(true),
-		collapsed = $bindable(true)
+		collapsed = $bindable(true),
+		matchHeight = 0
 	}: Props = $props();
 
 	function onReset() {
@@ -165,7 +167,7 @@
 	});
 </script>
 
-<OperatorBase title="Grayscale" icon="blur_linear" bind:enabled bind:collapsed {onReset}>
+<OperatorBase title="Grayscale" icon="blur_linear" bind:enabled bind:collapsed {matchHeight} {onReset}>
 	<OptionSelect
 		label="Mode"
 		bind:value={mode}

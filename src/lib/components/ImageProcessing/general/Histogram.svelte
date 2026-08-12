@@ -148,7 +148,7 @@
 		</div>
 
 		<div class="toggles">
-			<OptionCheckbox label="Hide transparent" bind:checked={ignoreTransparent} labelPosition="left" />
+			<OptionCheckbox label="α=0" hoverText="Skip fully transparent pixels (alpha=0) — they distort the histogram with invisible pixel data" bind:checked={ignoreTransparent} labelPosition="left" />
 			<div class="toggle-separator"></div>
 			<button
 				type="button"

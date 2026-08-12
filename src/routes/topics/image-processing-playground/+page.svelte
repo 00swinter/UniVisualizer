@@ -18,6 +18,7 @@
 		output?: PixelBuffer | null;
 		enabled?: boolean;
 		collapsed?: boolean;
+		matchHeight?: number;
 	}
 
 	interface OperatorDef {
@@ -266,6 +267,7 @@ let popupHistogramHeight = $derived.by(() => {
 										input={getInputBuffer(i)}
 										bind:output={step.output}
 										bind:collapsed={step.collapsed}
+										matchHeight={stepImageHeights[step.id] ?? 0}
 									/>
 								{/if}
 							</div>
