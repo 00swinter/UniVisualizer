@@ -11,6 +11,7 @@
 	import Contrast_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Contrast_Operator.svelte';
 	import Threshold_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Threshold_Operator.svelte';
 	import Morphology_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Morphology_Operator.svelte';
+	import Transformation_Operator from '$lib/components/ImageProcessing/ImageProcessingOperators/Transformation_Operator.svelte';
 
 	interface OperatorProps {
 		input: PixelBuffer | null;
@@ -40,7 +41,8 @@ type ExpandedViewMode = 'combined' | 'image' | 'histogram';
 		{ type: 'convolution', label: 'Convolution', component: Convolution_Operator },
 		{ type: 'contrast', label: 'Contrast', component: Contrast_Operator },
 		{ type: 'threshold', label: 'Threshold', component: Threshold_Operator },
-		{ type: 'morphology', label: 'Morphology', component: Morphology_Operator }
+		{ type: 'morphology', label: 'Morphology', component: Morphology_Operator },
+		{ type: 'transformation', label: 'Transformation', component: Transformation_Operator }
 	];
 
 	let originalImage: PixelBuffer | null = $state(null);

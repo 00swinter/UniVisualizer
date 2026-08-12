@@ -136,20 +136,20 @@
 
 	const bezierDefaults = {
 		all: [
-			[64, 192],
-			[192, 64]
+			[85, 85],
+			[170, 170]
 		],
 		red: [
-			[64, 192],
-			[192, 64]
+			[85, 85],
+			[170, 170]
 		],
 		green: [
-			[64, 192],
-			[192, 64]
+			[85, 85],
+			[170, 170]
 		],
 		blue: [
-			[64, 192],
-			[192, 64]
+			[85, 85],
+			[170, 170]
 		]
 	} as const;
 
@@ -316,6 +316,18 @@
 		return evalBezier(x, p1, p2);
 	}
 
+	let plotTitle = $derived.by(() => {
+		if (controlMode !== 'gamma') return '';
+		const channel = activeChannel();
+		const point = gammaPoints[channel];
+		const cx = clamp01(point.x / 255);
+		const cy = clamp01(point.y / 255);
+		const safeCx = Math.min(0.999, Math.max(0.001, cx));
+		const safeCy = Math.min(0.999, Math.max(0.001, cy));
+		const g = Math.log(safeCy) / Math.log(safeCx);
+		return `γ = ${g.toFixed(2)}`;
+	});
+
 	let plotItems = $derived.by(() => {
 		const channel = activeChannel();
 		const points = getControlPoints(channel);
@@ -404,8 +416,8 @@
 
 		<RadioSelect
 			options={[
-				{ label: 'All Channels', value: 'all' },
-				{ label: 'Separate Channels', value: 'seperated' }
+				{ label: 'All', value: 'all' },
+				{ label: 'Per Channel', value: 'seperated' }
 			]}
 			bind:value={channelMode}
 		/>
@@ -415,29 +427,29 @@
 		{#if channelMode === 'seperated'}
 			<RadioSelect
 				options={[
-					{ label: 'Red', value: 'red', color: Colors.red() },
-					{ label: 'Green', value: 'green', color: Colors.green() },
-					{ label: 'Blue', value: 'blue', color: Colors.blue() }
+				{ label: 'R', value: 'red', color: Colors.red() },
+				{ label: 'G', value: 'green', color: Colors.green() },
+				{ label: 'B', value: 'blue', color: Colors.blue() }
 				]}
 				bind:value={activeTab}
 			/>
 		{/if}
 		<MathPlot2D
-			title=""
+			title={plotTitle}
 			items={plotItems}
 			xDomain={[0, 255]}
 			yDomain={[0, 255]}
-			width={260}
-			height={260}
+			width={220}
+			height={220}
 			flipY={false}
 			showGrid={true}
 			showLabel={false}
 			domainLabelPadding={[3, 2.5, 2, 5]}
 			padding={[20, 30, 20, 20]}
-			xGridStep={64}
-			yGridStep={64}
-			xLabelStep={64}
-			yLabelStep={64}
+			xGridStep={63.75}
+			yGridStep={63.75}
+			xLabelStep={63.75}
+			yLabelStep={63.75}
 		/>
 	</div>
 </OperatorBase>
@@ -448,8 +460,8 @@
 		flex-direction: column;
 		justify-content: flex-start;
 		align-items: center;
-		padding: 15px;
-		gap: 15px;
+		padding: 10px 15px 2px;
+		gap: 2px;
 	}
 	.plot {
 		display: flex;
@@ -458,6 +470,7 @@
 		align-items: center;
 		width: 100%;
 		min-width: 0;
+		gap: 2px;
 	}
 
 	.plot :global(.plot-container) {

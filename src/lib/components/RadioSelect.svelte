@@ -52,10 +52,10 @@
         display: inline-flex;
         flex-direction: row;
         border: 1px solid var(--accent-color);
-        border-radius: 8px;
+        border-radius: 6px;
         overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        font-size: 14px;
+        font-size: 12px;
         background-color: rgba(0,0,0,0.2); 
     }
 
@@ -80,7 +80,7 @@
     }
 
     .label-text {
-        padding: 8px 16px;
+        padding: 5px 10px;
         width: 100%;
         text-align: center;
         white-space: nowrap;
