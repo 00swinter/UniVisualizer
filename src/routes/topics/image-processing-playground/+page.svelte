@@ -171,7 +171,7 @@ let popupImageWidth = $derived.by(() => {
 	);
 });
 let popupHistogramHeight = $derived.by(() => {
-	if (popupHistogramOnly) return Math.max(280, Math.floor(windowHeight - 52));
+	if (popupHistogramOnly) return Math.max(280, Math.floor(windowHeight - 96));
 	if (popupCompact) return Math.max(210, Math.floor((windowHeight - 92) * 0.42));
 	return Math.max(260, Math.floor(windowHeight - 62));
 });
@@ -817,6 +817,10 @@ let popupHistogramHeight = $derived.by(() => {
 
 	.expand-body.histogram-only {
 		justify-items: stretch;
+		width: 100%;
+		max-width: 100%;
+		padding-top: 44px;
+		box-sizing: border-box;
 	}
 
 	.full-span {
