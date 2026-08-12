@@ -15,6 +15,8 @@
 		children?: Snippet;
 	}
 
+	type HoverValueLine = { value: number | string; label: string };
+
 	let {
 		buffer,
 		fixedHeight = null,
@@ -29,6 +31,65 @@
 	}: Props = $props();
 
 	let canvas: HTMLCanvasElement | undefined = $state();
+	let hoveredImageX = $state<number | null>(null);
+	let hoveredImageY = $state<number | null>(null);
+
+	let hoveredImagePixel = $derived.by(() => {
+		if (!buffer || hoveredImageX == null || hoveredImageY == null) return null;
+
+		const x = Math.max(0, Math.min(hoveredImageX, buffer.width - 1));
+		const y = Math.max(0, Math.min(hoveredImageY, buffer.height - 1));
+		const index = (y * buffer.width + x) * 4;
+
+		if (index + 3 >= buffer.data.length) return null;
+
+		return {
+			x,
+			y,
+			r: buffer.data[index],
+			g: buffer.data[index + 1],
+			b: buffer.data[index + 2],
+			a: buffer.data[index + 3]
+		};
+	});
+
+	let hoveredImageLines = $derived.by((): HoverValueLine[] => {
+		if (!hoveredImagePixel) return [];
+
+		return [
+			{ value: `(${hoveredImagePixel.x}, ${hoveredImagePixel.y})`, label: '' },
+			{ value: hoveredImagePixel.r, label: 'R' },
+			{ value: hoveredImagePixel.g, label: 'G' },
+			{ value: hoveredImagePixel.b, label: 'B' },
+			{ value: hoveredImagePixel.a, label: 'A' }
+		];
+	});
+
+	function updateHoveredImage(event: MouseEvent) {
+		if (!buffer || buffer.width <= 0 || buffer.height <= 0) {
+			hoveredImageX = null;
+			hoveredImageY = null;
+			return;
+		}
+
+		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const relativeX = Math.max(0, Math.min(event.clientX - rect.left, rect.width));
+		const relativeY = Math.max(0, Math.min(event.clientY - rect.top, rect.height));
+
+		hoveredImageX = Math.max(
+			0,
+			Math.min(Math.floor((relativeX / rect.width) * buffer.width), buffer.width - 1)
+		);
+		hoveredImageY = Math.max(
+			0,
+			Math.min(Math.floor((relativeY / rect.height) * buffer.height), buffer.height - 1)
+		);
+	}
+
+	function clearHoveredImage() {
+		hoveredImageX = null;
+		hoveredImageY = null;
+	}
 
 	$effect(() => {
 		if (canvas && buffer) {
@@ -110,6 +171,25 @@
 				style:aspect-ratio="{buffer.width} / {buffer.height}"
 				style:display="block"
 			></canvas>
+			<div
+				class="image-hover-layer"
+				role="img"
+				aria-label="Image pixel values"
+				onmousemove={updateHoveredImage}
+				onmouseleave={clearHoveredImage}
+			></div>
+			{#if hoveredImageLines.length > 0}
+				<div class="image-hover-info">
+					{#each hoveredImageLines as line (line.label)}
+						<div class="hover-line-item" class:no-label={!line.label}>
+							<span class="hover-line-value">{line.value}</span>
+							{#if line.label}
+								<span class="hover-line-label">- {line.label}</span>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
 			{@render children?.()}
 		</div>
 	{:else}
@@ -203,6 +283,52 @@
 		background: #000;
 		border-radius: 6px;
 		overflow: hidden;
+	}
+
+	.image-hover-layer {
+		position: absolute;
+		inset: 0;
+		z-index: 5;
+	}
+
+	.image-hover-info {
+		position: absolute;
+		top: 6px;
+		right: 8px;
+		z-index: 6;
+		font-size: 0.65rem;
+		font-family: monospace;
+		color: #ddd;
+		line-height: 1.1;
+		padding: 3px 5px;
+		border-radius: 4px;
+		background: rgba(0, 0, 0, 0.5);
+		pointer-events: none;
+		user-select: none;
+		text-align: right;
+		text-shadow:
+			0 0 3px #000,
+			0 0 3px #000;
+	}
+
+	.hover-line-item {
+		display: grid;
+		grid-template-columns: auto auto;
+		justify-content: end;
+		column-gap: 0.45rem;
+	}
+
+	.hover-line-item.no-label {
+		grid-template-columns: auto;
+	}
+
+	.hover-line-value {
+		text-align: right;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.hover-line-label {
+		text-align: left;
 	}
 
 	canvas {

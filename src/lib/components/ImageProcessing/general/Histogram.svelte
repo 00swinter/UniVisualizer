@@ -29,6 +29,7 @@
 	let histB = $state(new Uint32Array(256));
 	let histA = $state(new Uint32Array(256));
 	let overallMaxCount = $state(1);
+	let hoveredBin = $state<number | null>(null);
 
 	function getMaxCount(data: Uint32Array): number {
 		let max = 0;
@@ -51,6 +52,28 @@
 	});
 
 	let matched = $derived(matchHeight != null && matchHeight > 0);
+	let hoveredBinLines = $derived.by(() => {
+		if (hoveredBin == null) return [];
+
+		const values = [{ value: hoveredBin, label: 'X' }];
+		if (showR) values.push({ value: histR[hoveredBin], label: 'R' });
+		if (showG) values.push({ value: histG[hoveredBin], label: 'G' });
+		if (showB) values.push({ value: histB[hoveredBin], label: 'B' });
+		if (showA) values.push({ value: histA[hoveredBin], label: 'A' });
+
+		return values;
+	});
+
+	function updateHoveredBin(event: MouseEvent) {
+		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const relativeX = Math.max(0, Math.min(event.clientX - rect.left, rect.width));
+		const bin = Math.floor((relativeX / rect.width) * 256);
+		hoveredBin = Math.max(0, Math.min(bin, 255));
+	}
+
+	function clearHoveredBin() {
+		hoveredBin = null;
+	}
 
 	$effect(() => {
 		if (!input) {
@@ -160,10 +183,26 @@
 		</div>
 	</div>
 
-	<div class="graph-container">
+	<div
+		class="graph-container"
+		role="img"
+		aria-label="Histogram chart"
+		onmousemove={updateHoveredBin}
+		onmouseleave={clearHoveredBin}
+	>
 		<div class="y-label top">{maxCount}</div>
 		<div class="y-label mid">{Math.round(maxCount / 2)}</div>
 		<div class="y-label bottom">0</div>
+		{#if hoveredBinLines.length > 0}
+			<div class="hover-info">
+				{#each hoveredBinLines as line (line.label)}
+					<div class="hover-line-item">
+						<span class="hover-line-value">{line.value}</span>
+						<span class="hover-line-label">- {line.label}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
 		<svg viewBox="0 0 100 100" preserveAspectRatio="none">
 			<line x1="0" y1="25" x2="100" y2="25" class="grid-line" />
 			<line x1="0" y1="50" x2="100" y2="50" class="grid-line" />
@@ -180,6 +219,16 @@
 			{/if}
 			{#if showA}
 				<path d={createBarPath(histA, maxCount)} fill="#e5e7eb" class="hist-layer" />
+			{/if}
+
+			{#if hoveredBin != null}
+				<line
+					x1={((hoveredBin + 0.5) / 256) * 100}
+					y1="0"
+					x2={((hoveredBin + 0.5) / 256) * 100}
+					y2="100"
+					class="hover-line"
+				/>
 			{/if}
 		</svg>
 	</div>
@@ -347,6 +396,45 @@
 	}
 	.y-label.bottom {
 		bottom: 4px;
+	}
+
+	.hover-info {
+		position: absolute;
+		top: 6px;
+		right: 8px;
+		z-index: 10;
+		font-size: 0.65rem;
+		font-family: monospace;
+		color: #ddd;
+		line-height: 1.1;
+		text-align: right;
+		pointer-events: none;
+		user-select: none;
+		text-shadow:
+			0 0 3px #000,
+			0 0 3px #000;
+	}
+
+	.hover-line-item {
+		display: grid;
+		grid-template-columns: auto auto;
+		justify-content: end;
+		column-gap: 0.45rem;
+	}
+
+	.hover-line-value {
+		text-align: right;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.hover-line-label {
+		text-align: left;
+	}
+
+	.hover-line {
+		stroke: rgba(255, 255, 255, 0.5);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
 	}
 
 	.x-labels {
