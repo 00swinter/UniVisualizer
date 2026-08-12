@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PixelBuffer } from '$lib/classes/PixelBuffer';
+	import OptionCheckbox from '$lib/components/OptionCheckbox.svelte';
 
 	interface Props {
 		input: PixelBuffer | null;
@@ -23,6 +24,7 @@
 	let showG = $state(true);
 	let showB = $state(true);
 	let showA = $state(false);
+	let ignoreTransparent = $state(true);
 
 	let histR = $state(new Uint32Array(256));
 	let histG = $state(new Uint32Array(256));
@@ -91,6 +93,7 @@
 		const a = new Uint32Array(256);
 
 		for (let i = 0; i < src.length; i += 4) {
+			if (ignoreTransparent && src[i + 3] === 0) continue;
 			r[src[i]]++;
 			g[src[i + 1]]++;
 			b[src[i + 2]]++;
@@ -141,11 +144,12 @@
 >
 	<div class="header">
 		<div class="title-group">
-			<span class="icon">📊</span>
 			<span class="title">Histogram</span>
 		</div>
 
 		<div class="toggles">
+			<OptionCheckbox label="Hide transparent" bind:checked={ignoreTransparent} labelPosition="left" />
+			<div class="toggle-separator"></div>
 			<button
 				type="button"
 				class="toggle-btn red"
@@ -290,6 +294,14 @@
 		gap: 4px;
 		flex-shrink: 0;
 	}
+	.toggle-separator {
+		width: 1px;
+		height: 16px;
+		background: #444;
+		margin: 0 10px;
+		align-self: center;
+	}
+
 	.toggle-btn {
 		background: #111;
 		border: 1px solid #444;

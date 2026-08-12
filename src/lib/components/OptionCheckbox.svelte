@@ -3,16 +3,18 @@
 		label?: string;
 		checked?: boolean;
 		id?: string;
+		labelPosition?: 'top' | 'left';
 	}
 
 	let {
 		label,
 		checked = $bindable(false),
-		id = Math.random().toString(36).substring(7)
+		id = Math.random().toString(36).substring(7),
+		labelPosition = 'top'
 	}: Props = $props();
 </script>
 
-<div class="option_group checkbox">
+<div class="option_group checkbox" class:horizontal={labelPosition === 'left'}>
 	{#if label}
 		<label for={id}>{label}</label>
 	{/if}
@@ -41,6 +43,11 @@
 		margin-bottom: 10px;
 	}
 
+	.option_group.horizontal {
+		flex-direction: row;
+		margin-bottom: 0;
+	}
+
 	label {
 		font: 700 0.65rem 'Inter', sans-serif;
 		color: #94a3b8;
@@ -49,6 +56,11 @@
 		text-align: center;
 		line-height: 1.2;
 		max-width: 4.5rem;
+		white-space: nowrap;
+	}
+
+	.horizontal label {
+		max-width: none;
 	}
 
 	.custom_checkbox {
