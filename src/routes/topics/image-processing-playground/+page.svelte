@@ -10,6 +10,8 @@
   import Grayscale_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Grayscale_Operator.svelte";
   import Convolution_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Convolution_Operator.svelte";
   import Contrast_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Contrast_Operator.svelte";
+  import HistogramEqualisation_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/HistogramEqualisation_Operator.svelte";
+  import HistogramNormalisation_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/HistogramNormalisation_Operator.svelte";
   import Threshold_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Threshold_Operator.svelte";
   import Morphology_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Morphology_Operator.svelte";
   import Transformation_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Transformation_Operator.svelte";
@@ -46,6 +48,16 @@
       component: Convolution_Operator,
     },
     { type: "contrast", label: "Contrast", component: Contrast_Operator },
+    {
+      type: "histogram_normalisation",
+      label: "Histogram Normalisation",
+      component: HistogramNormalisation_Operator,
+    },
+    {
+      type: "histogram_equalisation",
+      label: "Histogram Equalisation",
+      component: HistogramEqualisation_Operator,
+    },
     { type: "threshold", label: "Threshold", component: Threshold_Operator },
     { type: "morphology", label: "Morphology", component: Morphology_Operator },
     {
@@ -57,7 +69,8 @@
 
   let originalImage: PixelBuffer | null = $state(null);
   let pipeline: PipelineStep[] = $state([]);
-  let selectedOperatorToAdd = $state(operatorRegistry[0].type);
+  let showAddOperatorPopup = $state(false);
+  let pendingInsertIndex: number | null = $state(null);
   let expandedPreviewId: string | null = $state(null);
   let expandedViewMode = $state<ExpandedViewMode>("combined");
   let windowWidth = $state(1440);
@@ -129,10 +142,10 @@
       { bin: vals.g, color: "#22c55e" },
       { bin: vals.b, color: "#3b82f6" },
     ];
-    const seen = new Set<number>();
+    const seen: number[] = [];
     return bins.filter((b) => {
-      if (seen.has(b.bin)) return false;
-      seen.add(b.bin);
+      if (seen.includes(b.bin)) return false;
+      seen.push(b.bin);
       return true;
     });
   }
@@ -141,7 +154,17 @@
   const IMAGE_INSET = 11;
   const ORIGINAL_PREVIEW_ID = "__original__";
 
-  function addStep(type: string, index: number | null = null) {
+  function openAddOperatorPopup(insertIndex: number | null = null) {
+    pendingInsertIndex = insertIndex;
+    showAddOperatorPopup = true;
+  }
+
+  function closeAddOperatorPopup() {
+    showAddOperatorPopup = false;
+    pendingInsertIndex = null;
+  }
+
+  function addStep(type: string) {
     const opDef = operatorRegistry.find((op) => op.type === type);
 
     const newStep: PipelineStep = {
@@ -152,13 +175,15 @@
       collapsed: false,
     };
 
-    if (index === null) {
+    if (pendingInsertIndex === null) {
       pipeline = [...pipeline, newStep];
     } else {
       const newPipeline = [...pipeline];
-      newPipeline.splice(index, 0, newStep);
+      newPipeline.splice(pendingInsertIndex, 0, newStep);
       pipeline = newPipeline;
     }
+
+    closeAddOperatorPopup();
   }
 
   function removeStep(index: number) {
@@ -303,9 +328,7 @@
 <svelte:window bind:innerWidth={windowWidth} bind:innerHeight={windowHeight} />
 
 <div class="page-layout">
-  <div class="loader-row">
-    <PixelBufferLoader bind:buffer={originalImage} />
-  </div>
+  <PixelBufferLoader bind:buffer={originalImage} hidden={!!expandedPreviewId} />
 
   <div class="chain">
     <div class="step-row">
@@ -314,7 +337,9 @@
           <div class="operator-shell">
             <div
               class="step-meta step-meta-side"
-              style:height={originalImageHeight ? `${originalImageHeight}px` : null}
+              style:height={originalImageHeight
+                ? `${originalImageHeight}px`
+                : null}
             >
               <span class="step-badge">1</span>
               <div class="step-controls">
@@ -326,7 +351,8 @@
                 </button>
                 <button
                   class="icon-btn expand"
-                  onclick={() => openExpandedPreview(ORIGINAL_PREVIEW_ID, "combined")}
+                  onclick={() =>
+                    openExpandedPreview(ORIGINAL_PREVIEW_ID, "combined")}
                   title="Expand preview"
                 >
                   <span class="material-icons-round">open_in_full</span>
@@ -344,8 +370,6 @@
           </div>
         </div>
 
-        <div class="connector" aria-hidden="true"></div>
-
         <div class="node image-node">
           <GradientViewer
             buffer={originalImage}
@@ -358,8 +382,6 @@
             onExpand={() => openExpandedPreview(ORIGINAL_PREVIEW_ID, "image")}
           />
         </div>
-
-        <div class="connector" aria-hidden="true"></div>
 
         <div class="node hist-node">
           <Histogram
@@ -381,8 +403,6 @@
 
     {#each pipeline as step, i (step.id)}
       <div class="step-item" animate:flip={{ duration: 1500 }}>
-        <div class="step-link" aria-hidden="true"></div>
-
         <div class="step-row">
           <div class="flow">
             <div class="node op-node">
@@ -396,9 +416,26 @@
                   <span class="step-badge">{i + 2}</span>
                   <div class="step-controls">
                     <button
+                      class="icon-btn insert"
+                      type="button"
+                      onclick={() => openAddOperatorPopup(i)}
+                      title="Insert operation before"
+                    >
+                      <span class="insert-icon" aria-hidden="true">
+                        <span class="material-icons-round"
+                          >keyboard_arrow_up</span
+                        >
+                        <span class="material-icons-round">add</span>
+                      </span>
+                    </button>
+                    <button
                       class="icon-btn"
                       onclick={(event) =>
-                        moveStep(i, -1, event.currentTarget as HTMLButtonElement)}
+                        moveStep(
+                          i,
+                          -1,
+                          event.currentTarget as HTMLButtonElement,
+                        )}
                       disabled={i === 0}
                       title="Move up"
                     >
@@ -422,13 +459,30 @@
                     <button
                       class="icon-btn"
                       onclick={(event) =>
-                        moveStep(i, 1, event.currentTarget as HTMLButtonElement)}
+                        moveStep(
+                          i,
+                          1,
+                          event.currentTarget as HTMLButtonElement,
+                        )}
                       disabled={i === pipeline.length - 1}
                       title="Move down"
                     >
                       <span class="material-icons-round"
                         >keyboard_arrow_down</span
                       >
+                    </button>
+                    <button
+                      class="icon-btn insert"
+                      type="button"
+                      onclick={() => openAddOperatorPopup(i + 1)}
+                      title="Insert operation after"
+                    >
+                      <span class="insert-icon" aria-hidden="true">
+                        <span class="material-icons-round">add</span>
+                        <span class="material-icons-round"
+                          >keyboard_arrow_down</span
+                        >
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -444,8 +498,6 @@
                 {/if}
               </div>
             </div>
-
-            <div class="connector" aria-hidden="true"></div>
 
             <div class="node image-node">
               <GradientViewer
@@ -485,8 +537,6 @@
               />
             </div>
 
-            <div class="connector" aria-hidden="true"></div>
-
             <div class="node hist-node">
               <Histogram
                 input={step.output}
@@ -523,20 +573,56 @@
     {/each}
 
     <div class="add-section">
-      <div class="step-link short add-link" aria-hidden="true"></div>
       <div class="add-card">
-        <span class="label-faint">Next Operation:</span>
-        <select bind:value={selectedOperatorToAdd} class="op-select">
-          {#each operatorRegistry as op (op.type)}
-            <option value={op.type}>{op.label}</option>
-          {/each}
-        </select>
-        <button class="add-btn" onclick={() => addStep(selectedOperatorToAdd)}>
-          + Add Step
+        <button
+          class="add-btn"
+          type="button"
+          onclick={() => openAddOperatorPopup()}
+        >
+          + Add Operator
         </button>
       </div>
     </div>
   </div>
+
+  {#if showAddOperatorPopup}
+    <div
+      class="add-op-backdrop"
+      onclick={closeAddOperatorPopup}
+      role="presentation"
+    ></div>
+
+    <div
+      class="add-op-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-op-title"
+    >
+      <button
+        class="add-op-close"
+        type="button"
+        onclick={closeAddOperatorPopup}
+        aria-label="Close"
+      >
+        <span class="material-icons-round">close</span>
+      </button>
+
+      <h3 id="add-op-title" class="add-op-title">Add Operator</h3>
+      <p class="add-op-subtitle">Choose an operation to add to the pipeline</p>
+
+      <div class="add-op-grid">
+        {#each operatorRegistry as op (op.type)}
+          <button
+            class="add-op-choice"
+            type="button"
+            onclick={() => addStep(op.type)}
+          >
+            {op.label}
+          </button>
+        {/each}
+      </div>
+    </div>
+  {/if}
 
   {#if expandedPreviewId}
     <div
@@ -645,24 +731,13 @@
     box-sizing: border-box;
   }
 
-  .loader-row {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 28px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
   .chain {
-    --step-rail-x: 11px;
     --step-meta-width: 84px;
     --operator-col-width: 340px;
     --operator-sidebar-width: 44px;
     --operator-max-width: calc(
       var(--operator-col-width) - var(--operator-sidebar-width) - 12px
     );
-    --connector-width: 28px;
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -796,16 +871,37 @@
     border-color: rgba(74, 222, 128, 0.45);
   }
 
+  .icon-btn.insert:hover {
+    background: linear-gradient(
+      180deg,
+      rgba(168, 85, 247, 0.28),
+      rgba(126, 34, 206, 0.2)
+    );
+    border-color: rgba(192, 132, 252, 0.45);
+  }
+
+  .insert-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    gap: 0;
+  }
+
+  .insert-icon .material-icons-round {
+    font-size: 12px;
+    line-height: 0.85;
+  }
+
   .flow {
     display: grid;
     grid-template-columns:
       var(--operator-col-width)
-      var(--connector-width)
       max-content
-      var(--connector-width)
       minmax(200px, 1fr);
     align-items: flex-start;
-    gap: 0;
+    gap: 12px;
     width: 100%;
   }
 
@@ -850,50 +946,6 @@
     min-width: 200px;
   }
 
-  /* Horizontal connectors between floating boxes */
-  .connector {
-    width: var(--connector-width);
-    min-width: var(--connector-width);
-    align-self: stretch;
-    position: relative;
-    pointer-events: none;
-  }
-
-  .connector::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 36px;
-    height: 2px;
-    background: repeating-linear-gradient(
-      to right,
-      rgba(59, 130, 246, 0.55),
-      rgba(59, 130, 246, 0.55) 6px,
-      transparent 6px,
-      transparent 11px
-    );
-  }
-
-  /* Vertical link between pipeline steps */
-  .step-link {
-    width: 2px;
-    height: 8px;
-    margin: 0 0 0 var(--step-rail-x);
-    background: repeating-linear-gradient(
-      to bottom,
-      rgba(59, 130, 246, 0.45),
-      rgba(59, 130, 246, 0.45) 5px,
-      transparent 5px,
-      transparent 9px
-    );
-    align-self: flex-start;
-  }
-
-  .step-link.short {
-    height: 6px;
-  }
-
   .op-bar {
     display: flex;
     align-items: center;
@@ -928,76 +980,129 @@
   }
 
   .add-section {
-    position: relative;
     display: flex;
     justify-content: flex-start;
-    padding-top: 4px;
-    padding-left: calc(
-      var(--operator-col-width) + var(--connector-width) + 12px
-    );
+    padding-top: 8px;
+    padding-left: calc(var(--operator-col-width) + 12px);
   }
 
   .add-card {
-    position: relative;
     background: rgba(17, 17, 17, 0.7);
-    border: 1px dashed rgba(255, 255, 255, 0.18);
-    padding: 12px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 10px 16px;
     border-radius: 999px;
     display: flex;
-    gap: 15px;
     align-items: center;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-  }
-
-  .add-card::before {
-    content: "";
-    position: absolute;
-    top: 50%;
-    right: 100%;
-    width: 36px;
-    height: 2px;
-    transform: translateY(-50%);
-    background: repeating-linear-gradient(
-      to right,
-      rgba(59, 130, 246, 0.55),
-      rgba(59, 130, 246, 0.55) 6px,
-      transparent 6px,
-      transparent 11px
-    );
-  }
-
-  .add-link {
-    position: absolute;
-    left: var(--step-rail-x);
-    top: 0;
-    margin: 0;
-  }
-
-  .op-select {
-    background: #222;
-    color: #eee;
-    border: 1px solid #333;
-    padding: 5px 10px;
-    border-radius: 4px;
   }
 
   .add-btn {
     background: #3b82f6;
     color: white;
     border: none;
-    padding: 6px 16px;
-    border-radius: 4px;
+    padding: 8px 20px;
+    border-radius: 999px;
     cursor: pointer;
     font-weight: bold;
+    font-family: inherit;
+    font-size: 0.9rem;
   }
   .add-btn:hover {
     background: #2563eb;
   }
 
-  .label-faint {
+  .add-op-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 8, 16, 0.7);
+    backdrop-filter: blur(3px);
+    z-index: 50;
+  }
+
+  .add-op-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(520px, calc(100vw - 32px));
+    padding: 24px 28px 28px;
+    border-radius: 16px;
+    background: rgba(16, 22, 32, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+    z-index: 51;
+    box-sizing: border-box;
+  }
+
+  .add-op-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    background: rgba(30, 41, 59, 0.95);
+    color: #e2e8f0;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .add-op-close:hover {
+    background: rgba(59, 130, 246, 0.24);
+    border-color: rgba(96, 165, 250, 0.45);
+  }
+
+  .add-op-close .material-icons-round {
+    font-size: 18px;
+  }
+
+  .add-op-title {
+    margin: 0 0 6px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #e0e0e0;
+  }
+
+  .add-op-subtitle {
+    margin: 0 0 20px;
+    font-size: 0.85rem;
     color: #888;
-    font-size: 0.8rem;
-    text-transform: uppercase;
+  }
+
+  .add-op-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .add-op-choice {
+    padding: 12px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    background: linear-gradient(
+      180deg,
+      rgba(38, 48, 66, 0.96),
+      rgba(24, 31, 44, 0.96)
+    );
+    color: #e0e0e0;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition:
+      background 0.15s,
+      border-color 0.15s,
+      transform 0.1s;
+  }
+
+  .add-op-choice:hover {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(96, 165, 250, 0.45);
+    transform: translateY(-1px);
   }
 
   .expand-backdrop {

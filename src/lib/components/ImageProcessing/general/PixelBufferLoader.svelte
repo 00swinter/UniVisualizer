@@ -5,9 +5,10 @@
   interface Props {
     buffer?: PixelBuffer | null;
     maxRes?: number;
+  hidden?: boolean;
   }
 
-  let { buffer = $bindable(null), maxRes = 250 }: Props = $props();
+let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props();
 
   let resolution = $state(250);
   let isLoading = $state(false);
@@ -140,11 +141,10 @@
   };
 
   onMount(() => {
-    if (examples.length > 0) {
-      selectedExample = examples[0].url;
-      const random = examples[Math.floor(Math.random() * examples.length)].url;
-      loadImageSource(random);
-    }
+    const sunflower = examples.find((ex) => ex.name === "Sunflower");
+    const initialUrl = sunflower?.url ?? examples[0].url;
+    selectedExample = initialUrl;
+    loadImageSource(initialUrl);
   });
 
   const closeMenu = () => {
@@ -153,36 +153,25 @@
 </script>
 
 <div class="loader-wrapper">
-  <div class="main-card">
-    <div class="header">
-      <span class="label">Source Image</span>
-      {#if isLoading}
-        <span class="status loading">Loading...</span>
-      {:else if sourceImage}
-        <span class="status success">Active</span>
-      {:else}
-        <span class="status idle">None</span>
-      {/if}
-    </div>
-
-    <div class="slider-group">
-      <div class="slider-info">
-        <span>Resolution</span>
+  {#if !hidden && !isMenuOpen}
+    <div class="main-card">
+      <div class="slider-group">
+        <span class="slider-label">Res</span>
+        <input
+          type="range"
+          min="5"
+          max={maxRes}
+          bind:value={resolution}
+          disabled={!sourceImage}
+        />
         <span class="val">{resolution}px</span>
       </div>
-      <input
-        type="range"
-        min="5"
-        max={maxRes}
-        bind:value={resolution}
-        disabled={!sourceImage}
-      />
-    </div>
 
-    <button class="btn-main" onclick={() => (isMenuOpen = true)}>
-      {sourceImage ? "🔄 Replace Image" : "➕ Load Image"}
-    </button>
-  </div>
+      <button class="btn-main" onclick={() => (isMenuOpen = true)}>
+        {sourceImage ? "Change image" : "Load image"}
+      </button>
+    </div>
+  {/if}
 
   {#if isMenuOpen}
     <div
@@ -263,65 +252,53 @@
   }
 
   .loader-wrapper {
-    position: relative;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 40;
     font-family: system-ui, sans-serif;
     color: var(--text);
   }
 
   .main-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
-    width: 300px;
+    background: rgba(30, 30, 30, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    padding: 7px 10px;
+    width: auto;
+    max-width: calc(100vw - 24px);
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-  }
-
-  .header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.9rem;
-    font-weight: 600;
-  }
-
-  .status {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    font-weight: 700;
-  }
-  .status.loading {
-    color: var(--accent);
-  }
-  .status.success {
-    color: var(--success);
-  }
-  .status.idle {
-    color: var(--text-dim);
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
   }
 
   .slider-group {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
   }
-  .slider-info {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.8rem;
+
+  .slider-label {
+    font-size: 0.68rem;
     color: var(--text-dim);
+    white-space: nowrap;
   }
+
   .val {
     color: var(--accent);
     font-family: monospace;
+    font-size: 0.68rem;
+    white-space: nowrap;
   }
   input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
-    width: 100%;
-    height: 22px;
+    width: 82px;
+    height: 18px;
     margin: 0;
     background: transparent;
     cursor: pointer;
@@ -349,7 +326,7 @@
   }
 
   input[type="range"]::-webkit-slider-runnable-track {
-    height: 6px;
+    height: 4px;
     border-radius: 999px;
     background: #333;
     border: 1px solid #444;
@@ -358,9 +335,9 @@
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
-    margin-top: -6px;
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;
     border-radius: 50%;
     background: var(--accent);
     border: 2px solid #111;
@@ -373,15 +350,15 @@
   }
 
   input[type="range"]::-moz-range-track {
-    height: 6px;
+    height: 4px;
     border-radius: 999px;
     background: #333;
     border: 1px solid #444;
   }
 
   input[type="range"]::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: var(--accent);
     border: 2px solid #111;
@@ -394,7 +371,7 @@
   }
 
   input[type="range"]::-moz-range-progress {
-    height: 6px;
+    height: 4px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--accent) 45%, #333);
   }
@@ -403,10 +380,12 @@
     background: var(--accent);
     color: white;
     border: none;
-    padding: 10px;
-    border-radius: 6px;
+    padding: 6px 9px;
+    border-radius: 999px;
     font-weight: 600;
+    font-size: 0.68rem;
     cursor: pointer;
+    white-space: nowrap;
   }
   .btn-main:hover {
     background: var(--accent-hover);
@@ -526,6 +505,7 @@
     color: var(--text);
     overflow: hidden;
     display: -webkit-box;
+    line-clamp: 2;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     word-break: break-word;
