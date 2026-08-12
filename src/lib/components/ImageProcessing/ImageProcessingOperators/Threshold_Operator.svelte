@@ -13,16 +13,19 @@
     input: PixelBuffer | null;
     output?: PixelBuffer | null;
     enabled?: boolean;
+    collapsed?: boolean;
   }
 
   let {
     input,
     output = $bindable(null),
     enabled = $bindable(true),
+    collapsed = $bindable(true),
   }: Props = $props();
 
   let channelMode = $state<ChannelMode>("luminance");
   let invert = $state(false);
+  let infoOpen = $state(false);
 
   let threshold = $state(128);
   let thresholdR = $state(128);
@@ -90,15 +93,26 @@
 
     output = nextOutput;
   });
+
+  const infoTitle = $derived.by(() => {
+    switch (channelMode) {
+      case "luminance":
+        return "Luminance Threshold";
+      case "all":
+        return "Per-Channel Threshold";
+      case "separated":
+        return "Separate Channel Thresholds";
+    }
+  });
 </script>
 
-<OperatorBase title="Threshold" icon="tonality" bind:enabled {onReset}>
+<OperatorBase title="Threshold" icon="tonality" bind:enabled bind:collapsed {onReset}>
   <div class="controls">
     <RadioSelect
       options={[
-        { label: "Luminance", value: "luminance" },
-        { label: "All Channels", value: "all" },
-        { label: "Separate", value: "separated" },
+        { label: "gray", value: "luminance" },
+        { label: "color", value: "all" },
+        { label: "rgb", value: "separated" },
       ]}
       bind:value={channelMode}
     />
@@ -148,39 +162,67 @@
     <OptionCheckbox label="Invert" bind:checked={invert} />
   </div>
 
-  {#if channelMode === "luminance"}
-    <InfoContainer title="Luminance Threshold">
+  <InfoContainer title={infoTitle} bind:open={infoOpen}>
+    {#if channelMode === "luminance"}
       <p>
         Uses Rec. 601 luminance (0.299R + 0.587G + 0.114B). Pixels at or above
         the cutoff become white; darker pixels become black{invert
           ? " (inverted)"
           : ""}.
       </p>
-    </InfoContainer>
-  {:else if channelMode === "all"}
-    <InfoContainer title="Per-Channel Threshold">
+    {:else if channelMode === "all"}
       <p>
         Applies the same cutoff to R, G, and B independently. The result stays a
         color image where each channel is binary{invert ? " (inverted)" : ""}.
       </p>
-    </InfoContainer>
-  {:else}
-    <InfoContainer title="Separate Channel Thresholds">
+    {:else}
       <p>
         Each channel has its own cutoff. Useful for color-based segmentation
         when red, green, and blue need different thresholds{invert
           ? " (inverted)"
           : ""}.
       </p>
-    </InfoContainer>
-  {/if}
+    {/if}
+  </InfoContainer>
 </OperatorBase>
 
 <style>
   .controls {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     margin-bottom: 10px;
+  }
+
+  .controls :global(.segmented-control) {
+    display: flex;
+    width: 100%;
+    font-size: 0.75rem;
+  }
+
+  .controls :global(.segmented-control .label-text) {
+    padding: 6px 4px;
+  }
+
+  .controls :global(.param-container) {
+    padding: 6px 8px;
+    border-radius: 8px;
+    border-left-width: 5px;
+    gap: 4px;
+  }
+
+  .controls :global(.param-container .header) {
+    font-size: 0.75rem;
+  }
+
+  .controls :global(.param-container .value-readout) {
+    font-size: 0.7rem;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border-width: 1px;
+  }
+
+  .controls :global(.param-container .slider) {
+    height: 14px;
   }
 </style>

@@ -9,6 +9,7 @@
 		input: PixelBuffer | null;
 		output?: PixelBuffer | null;
 		enabled?: boolean;
+		collapsed?: boolean;
 	}
 
 	type PresetId =
@@ -110,12 +111,18 @@
 		{ id: '3', label: '3×' }
 	];
 
-	let { input, output = $bindable(null), enabled = $bindable(true) }: Props = $props();
+	let {
+		input,
+		output = $bindable(null),
+		enabled = $bindable(true),
+		collapsed = $bindable(true)
+	}: Props = $props();
 
 	let kernel = $state([...PRESETS.identity] as number[]);
 	let preset: PresetId = $state('identity');
 	let repeats = $state('1');
 	let mutateAlpha = $state(false);
+	let infoOpen = $state(false);
 
 	const presetInfo = $derived(PRESET_INFO[preset]);
 
@@ -218,7 +225,7 @@
 	});
 </script>
 
-<OperatorBase title="Custom Kernel" icon="grid_on" bind:enabled {onReset}>
+<OperatorBase title="Convolution" icon="grid_on" bind:enabled bind:collapsed {onReset}>
 	<div class="kernel-ui">
 		<div class="kernel-grid">
 			{#each kernel as _, index (index)}
@@ -244,11 +251,11 @@
 		</div>
 	</div>
 
-	<InfoContainer title={presetInfo.title}>
+	<InfoContainer title={presetInfo.title} bind:open={infoOpen}>
 		<p>{presetInfo.description}</p>
 		<p>
 			Use <strong>Repeat</strong> to apply the kernel multiple times.
-			{' '}<strong>Affect alpha</strong> only changes whether alpha is convolved; RGB is always
+			<strong>Affect alpha</strong> only changes whether alpha is convolved; RGB is always
 			filtered the same way.
 		</p>
 	</InfoContainer>
@@ -260,25 +267,29 @@
 		flex-direction: column;
 		gap: 12px;
 		background: #1a1a1a;
-		padding: 16px;
+		padding: 12px;
 		border-radius: 8px;
+		min-width: 0;
+		box-sizing: border-box;
 	}
 
 	.kernel-grid {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 4px;
 		justify-content: center;
 	}
 
 	.controls-row {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 12px;
 		align-items: flex-end;
 	}
 
 	.controls-row :global(.option_group) {
-		flex: 1;
+		flex: 1 1 120px;
+		min-width: 0;
 		margin-bottom: 0;
 	}
 
@@ -292,10 +303,12 @@
 		border: 2px solid transparent;
 		border-radius: 4px;
 		transition: all 0.2s;
+		min-width: 0;
 	}
 
 	.cell-wrapper input {
-		width: 50px;
+		width: 100%;
+		min-width: 0;
 		height: 40px;
 		background: transparent;
 		border: none;

@@ -9,6 +9,7 @@
 		input: PixelBuffer | null;
 		output?: PixelBuffer | null;
 		enabled?: boolean;
+		collapsed?: boolean;
 	}
 
 	type MorphMode = 'dilation' | 'erosion' | 'opening' | 'closing';
@@ -69,9 +70,15 @@
 		}
 	};
 
-	let { input, output = $bindable(null), enabled = $bindable(true) }: Props = $props();
+	let {
+		input,
+		output = $bindable(null),
+		enabled = $bindable(true),
+		collapsed = $bindable(true)
+	}: Props = $props();
 
 	let mode = $state<MorphMode>('dilation');
+	let infoOpen = $state(false);
 	let gridState = $state(makePreset('cross'));
 	let flipStamp = $state(true);
 
@@ -206,7 +213,7 @@
 	});
 </script>
 
-<OperatorBase title="Morphology" icon="blur_on" bind:enabled {onReset}>
+<OperatorBase title="Morphology" icon="blur_on" bind:enabled bind:collapsed {onReset}>
 	<div class="controls">
 		<OptionSelect label="Operation" bind:value={mode} options={MODE_OPTIONS} />
 
@@ -260,7 +267,7 @@
 		</div>
 	</div>
 
-	<InfoContainer title={modeInfo.title}>
+	<InfoContainer title={modeInfo.title} bind:open={infoOpen}>
 		<p>{modeInfo.description}</p>
 		<p>
 			Click cells to edit the structuring element. With Flip stamp on, the kernel is reflected in

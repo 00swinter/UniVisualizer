@@ -148,7 +148,10 @@
               bind:imageHeight={displayHeight}
             >
               {#if gradientOpen}
-                <div class="scan-line" style:top="{scanLineTopPct}%"></div>
+                <div
+                  class="scan-line"
+                  style:top="{scanLineTopPct}%"
+                ></div>
               {/if}
             </PixelBufferDisplay>
           </div>
@@ -254,7 +257,10 @@
       </div>
 
       {#if gradientOpen}
-        <div class="gradient-ctrl" style:--image-h="{imageFrameHeight}px">
+        <div
+          class="gradient-ctrl"
+          style:--image-h="{imageFrameHeight}px"
+        >
           <div class="slider-wrap">
             <input
               type="range"
@@ -340,6 +346,7 @@
       "image imgCh"
       "chart chartCh";
   }
+
 
   .image-slot {
     grid-area: image;

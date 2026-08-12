@@ -10,13 +10,19 @@
 		input: PixelBuffer | null;
 		output?: PixelBuffer | null;
 		enabled?: boolean;
+		collapsed?: boolean;
 	}
 
 	type Channel = 'all' | 'red' | 'green' | 'blue';
 	type ControlMode = 'linear' | 'gamma' | 'bezier';
 	type ChannelMode = 'all' | 'seperated';
 
-	let { input, output = $bindable(null), enabled = $bindable(true) }: Props = $props();
+	let {
+		input,
+		output = $bindable(null),
+		enabled = $bindable(true),
+		collapsed = $bindable(true)
+	}: Props = $props();
 
 	let controlMode = $state<ControlMode>('linear');
 	let channelMode = $state<ChannelMode>('all');
@@ -385,7 +391,7 @@
 	});
 </script>
 
-<OperatorBase title="Tone Curve" icon="contrast" bind:enabled {onReset}>
+<OperatorBase title="Contrast" icon="contrast" bind:enabled bind:collapsed {onReset}>
 	<div class="controls">
 		<RadioSelect
 			options={[
@@ -414,7 +420,6 @@
 					{ label: 'Blue', value: 'blue', color: Colors.blue() }
 				]}
 				bind:value={activeTab}
-				width="350px"
 			/>
 		{/if}
 		<MathPlot2D
@@ -422,8 +427,8 @@
 			items={plotItems}
 			xDomain={[0, 255]}
 			yDomain={[0, 255]}
-			width={300}
-			height={300}
+			width={260}
+			height={260}
 			flipY={false}
 			showGrid={true}
 			showLabel={false}
@@ -451,5 +456,11 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
+		width: 100%;
+		min-width: 0;
+	}
+
+	.plot :global(.plot-container) {
+		max-width: 100%;
 	}
 </style>

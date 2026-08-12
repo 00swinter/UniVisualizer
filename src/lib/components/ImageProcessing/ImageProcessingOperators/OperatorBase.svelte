@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { fade, slide } from 'svelte/transition';
 
 	interface Props {
 		title?: string;
@@ -56,17 +57,24 @@
 		</div>
 
 		{#if !collapsed}
-			<button class="icon_button reset_btn" onclick={handleReset} title="Reset Settings">
+			<button
+				class="icon_button reset_btn"
+				onclick={handleReset}
+				title="Reset Settings"
+				transition:fade={{ duration: 140 }}
+			>
 				<span class="material-icons-round">replay</span>
 			</button>
 		{/if}
 	</div>
 
 	{#if !collapsed}
-		<hr class="divider" />
+		<div class="content_shell" transition:slide={{ duration: 180 }}>
+			<hr class="divider" />
 
-		<div class="content">
-			{@render children?.()}
+			<div class="content">
+				{@render children?.()}
+			</div>
 		</div>
 	{/if}
 </div>
@@ -88,13 +96,15 @@
 		font-family: 'Inter', system-ui, sans-serif;
 		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-		width: 320px;
-		max-width: 100%;
+		width: 100%;
+		max-width: var(--operator-max-width, 320px);
+		min-width: 0;
 		box-sizing: border-box;
 	}
 
 	.operator_container.collapsed {
 		width: auto;
+		max-width: 100%;
 		min-width: 160px;
 		padding: 6px 8px;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -221,6 +231,7 @@
 
 	.content {
 		padding: 4px 0;
+		min-width: 0;
 	}
 
 	.material-icons-round {

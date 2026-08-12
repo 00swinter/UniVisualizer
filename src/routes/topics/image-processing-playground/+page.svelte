@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { flip } from 'svelte/animate';
 	import type { Component } from 'svelte';
 	import type { PixelBuffer } from '$lib/classes/PixelBuffer';
 	import PixelBufferLoader from '$lib/components/ImageProcessing/general/PixelBufferLoader.svelte';
@@ -15,6 +16,7 @@
 		input: PixelBuffer | null;
 		output?: PixelBuffer | null;
 		enabled?: boolean;
+		collapsed?: boolean;
 	}
 
 	interface OperatorDef {
@@ -28,6 +30,7 @@
 		type: string;
 		label: string;
 		output: PixelBuffer | null;
+		collapsed: boolean;
 	}
 
 	const operatorRegistry: OperatorDef[] = [
@@ -56,7 +59,8 @@
 			id: crypto.randomUUID(),
 			type: type,
 			label: opDef ? opDef.label : 'Unknown Step',
-			output: null
+			output: null,
+			collapsed: false
 		};
 
 		if (index === null) {
@@ -105,12 +109,12 @@
 
 	<div class="chain">
 		<div class="step-row">
-			<div class="step-meta">
-				<span class="step-badge">1</span>
-			</div>
-
 			<div class="flow">
 				<div class="node op-node">
+					<div class="step-meta step-meta-inline">
+						<span class="step-badge">1</span>
+					</div>
+
 					<div class="op-bar static">
 						<span class="material-icons-round">image</span>
 						<span class="op-title">Original Image</span>
@@ -136,60 +140,77 @@
 		</div>
 
 		{#each pipeline as step, i (step.id)}
-			<div class="step-link" aria-hidden="true"></div>
+			<div class="step-item" animate:flip={{ duration: 220 }}>
+				<div class="step-link" aria-hidden="true"></div>
 
-			<div class="step-row">
-				<div class="step-meta">
-					<span class="step-badge">{i + 2}</span>
-					<div class="step-controls">
-						<button class="icon-btn" onclick={() => moveStep(i, -1)} disabled={i === 0}>↑</button>
-						<button
-							class="icon-btn"
-							onclick={() => moveStep(i, 1)}
-							disabled={i === pipeline.length - 1}>↓</button
-						>
-						<button class="icon-btn delete" onclick={() => removeStep(i)}>×</button>
-					</div>
-				</div>
+				<div class="step-row">
+					<div class="flow">
+						<div class="node op-node">
+							<div class="operator-shell">
+								<div
+									class="step-meta step-meta-side"
+									style:height={stepImageHeights[step.id] ? `${stepImageHeights[step.id]}px` : null}
+								>
+									<span class="step-badge">{i + 2}</span>
+									<div class="step-controls">
+										<button class="icon-btn" onclick={() => moveStep(i, -1)} disabled={i === 0} title="Move up">
+											<span class="material-icons-round">keyboard_arrow_up</span>
+										</button>
+										<button
+											class="icon-btn"
+											onclick={() => moveStep(i, 1)}
+											disabled={i === pipeline.length - 1}
+											title="Move down">
+											<span class="material-icons-round">keyboard_arrow_down</span>
+										</button
+										>
+										<button class="icon-btn delete" onclick={() => removeStep(i)} title="Delete step">
+											<span class="material-icons-round">delete</span>
+										</button>
+									</div>
+								</div>
 
-				<div class="flow">
-					<div class="node op-node">
-						{#if getComponentType(step.type)}
-							{@const OperatorComponent = getComponentType(step.type)}
-							<OperatorComponent input={getInputBuffer(i)} bind:output={step.output} />
-						{/if}
-					</div>
+								{#if getComponentType(step.type)}
+									{@const OperatorComponent = getComponentType(step.type)}
+									<OperatorComponent
+										input={getInputBuffer(i)}
+										bind:output={step.output}
+										bind:collapsed={step.collapsed}
+									/>
+								{/if}
+							</div>
+						</div>
 
-					<div class="connector" aria-hidden="true"></div>
+						<div class="connector" aria-hidden="true"></div>
 
-					<div class="node image-node">
-						<GradientViewer
-							buffer={step.output}
-							bind:imageHeight={
-								() => stepImageHeights[step.id] ?? 0,
-								(h) => {
-									stepImageHeights[step.id] = h;
+						<div class="node image-node">
+							<GradientViewer
+								buffer={step.output}
+								bind:imageHeight={
+									() => stepImageHeights[step.id] ?? 0,
+									(h) => {
+										stepImageHeights[step.id] = h;
+									}
 								}
-							}
-						/>
-					</div>
+							/>
+						</div>
 
-					<div class="connector" aria-hidden="true"></div>
+						<div class="connector" aria-hidden="true"></div>
 
-					<div class="node hist-node">
-						<Histogram
-							input={step.output}
-							matchHeight={stepImageHeights[step.id] ?? 0}
-							offsetTop={IMAGE_INSET}
-						/>
+						<div class="node hist-node">
+							<Histogram
+								input={step.output}
+								matchHeight={stepImageHeights[step.id] ?? 0}
+								offsetTop={IMAGE_INSET}
+							/>
+						</div>
 					</div>
 				</div>
 			</div>
 		{/each}
 
-		<div class="step-link short" aria-hidden="true"></div>
-
 		<div class="add-section">
+			<div class="step-link short add-link" aria-hidden="true"></div>
 			<div class="add-card">
 				<span class="label-faint">Next Operation:</span>
 				<select bind:value={selectedOperatorToAdd} class="op-select">
@@ -226,6 +247,14 @@
 	}
 
 	.chain {
+		--step-rail-x: 11px;
+		--step-meta-width: 84px;
+		--operator-col-width: 340px;
+		--operator-sidebar-width: 44px;
+		--operator-max-width: calc(
+			var(--operator-col-width) - var(--operator-sidebar-width) - 12px
+		);
+		--connector-width: 28px;
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
@@ -236,7 +265,12 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+	}
+
+	.step-item {
+		display: flex;
+		flex-direction: column;
+		will-change: transform;
 	}
 
 	.step-meta {
@@ -245,6 +279,21 @@
 		gap: 8px;
 		padding-left: 2px;
 		min-height: 24px;
+	}
+
+	.step-meta-side {
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 14px;
+		padding: 8px 0;
+		min-width: 44px;
+		border-radius: 14px;
+		background: linear-gradient(180deg, rgba(20, 27, 39, 0.96), rgba(14, 19, 29, 0.92));
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.04),
+			0 10px 24px rgba(0, 0, 0, 0.28);
 	}
 
 	.step-badge {
@@ -264,43 +313,61 @@
 
 	.step-controls {
 		display: flex;
-		gap: 5px;
+		flex-direction: column;
+		gap: 8px;
+		align-items: center;
 	}
 
 	.icon-btn {
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		border: 1px solid rgba(255, 255, 255, 0.12);
-		background: rgba(20, 20, 24, 0.85);
-		color: #888;
+		width: 32px;
+		height: 32px;
+		border-radius: 10px;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		background: linear-gradient(180deg, rgba(38, 48, 66, 0.96), rgba(24, 31, 44, 0.96));
+		color: #b7c2d3;
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 12px;
-		transition: all 0.2s;
+		padding: 0;
+		transition:
+			transform 0.16s ease,
+			background 0.16s ease,
+			border-color 0.16s ease,
+			color 0.16s ease,
+			box-shadow 0.16s ease;
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.04),
+			0 4px 12px rgba(0, 0, 0, 0.22);
 	}
 
 	.icon-btn:hover:not(:disabled) {
-		background: #333;
+		transform: translateY(-1px);
+		background: linear-gradient(180deg, rgba(59, 130, 246, 0.28), rgba(37, 99, 235, 0.2));
+		border-color: rgba(96, 165, 250, 0.45);
 		color: white;
 	}
 
 	.icon-btn:disabled {
-		opacity: 0.3;
+		opacity: 0.32;
 		cursor: not-allowed;
+		box-shadow: none;
 	}
 
 	.icon-btn.delete:hover {
-		background: #ef4444;
-		border-color: #ef4444;
+		background: linear-gradient(180deg, rgba(239, 68, 68, 0.9), rgba(185, 28, 28, 0.9));
+		border-color: rgba(248, 113, 113, 0.9);
 		color: white;
 	}
 
 	.flow {
-		display: flex;
-		flex-direction: row;
+		display: grid;
+		grid-template-columns:
+			var(--operator-col-width)
+			var(--connector-width)
+			max-content
+			var(--connector-width)
+			minmax(200px, 1fr);
 		align-items: flex-start;
 		gap: 0;
 		width: 100%;
@@ -312,9 +379,29 @@
 	}
 
 	.op-node {
-		width: fit-content;
-		max-width: 340px;
-		flex-shrink: 0;
+		width: var(--operator-col-width);
+		max-width: var(--operator-col-width);
+		min-width: 0;
+		position: relative;
+	}
+
+	.operator-shell {
+		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		width: 100%;
+		min-width: 0;
+	}
+
+	.operator-shell :global(.operator_container) {
+		flex: 1 1 auto;
+		min-width: 0;
+		max-width: var(--operator-max-width);
+	}
+
+	.icon-btn .material-icons-round {
+		font-size: 18px;
+		line-height: 1;
 	}
 
 	.image-node {
@@ -324,24 +411,16 @@
 	}
 
 	.hist-node {
-		flex: 1 1 auto;
 		min-width: 200px;
 	}
 
 	/* Horizontal connectors between floating boxes */
 	.connector {
-		width: 28px;
-		min-width: 28px;
+		width: var(--connector-width);
+		min-width: var(--connector-width);
 		align-self: stretch;
 		position: relative;
-		flex-shrink: 0;
 		pointer-events: none;
-	}
-
-	/* Extra room between the image/gradient controls and the histogram */
-	.image-node + .connector {
-		width: 56px;
-		min-width: 56px;
 	}
 
 	.connector::before {
@@ -363,8 +442,8 @@
 	/* Vertical link between pipeline steps */
 	.step-link {
 		width: 2px;
-		height: 28px;
-		margin: 4px 0 4px 11px;
+		height: 8px;
+		margin: 0 0 0 var(--step-rail-x);
 		background: repeating-linear-gradient(
 			to bottom,
 			rgba(59, 130, 246, 0.45),
@@ -376,7 +455,7 @@
 	}
 
 	.step-link.short {
-		height: 18px;
+		height: 6px;
 	}
 
 	.op-bar {
@@ -395,7 +474,8 @@
 
 	.op-bar.static {
 		cursor: default;
-		min-width: 160px;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	.op-bar .material-icons-round {
@@ -412,13 +492,15 @@
 	}
 
 	.add-section {
+		position: relative;
 		display: flex;
 		justify-content: flex-start;
 		padding-top: 4px;
-		padding-left: 0;
+		padding-left: calc(var(--operator-col-width) + var(--connector-width) + 12px);
 	}
 
 	.add-card {
+		position: relative;
 		background: rgba(17, 17, 17, 0.7);
 		border: 1px dashed rgba(255, 255, 255, 0.18);
 		padding: 12px 20px;
@@ -427,6 +509,30 @@
 		gap: 15px;
 		align-items: center;
 		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+	}
+
+	.add-card::before {
+		content: '';
+		position: absolute;
+		top: 50%;
+		right: 100%;
+		width: 36px;
+		height: 2px;
+		transform: translateY(-50%);
+		background: repeating-linear-gradient(
+			to right,
+			rgba(59, 130, 246, 0.55),
+			rgba(59, 130, 246, 0.55) 6px,
+			transparent 6px,
+			transparent 11px
+		);
+	}
+
+	.add-link {
+		position: absolute;
+		left: var(--step-rail-x);
+		top: 0;
+		margin: 0;
 	}
 
 	.op-select {

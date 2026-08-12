@@ -17,15 +17,40 @@
 		input: PixelBuffer | null;
 		output?: PixelBuffer | null;
 		enabled?: boolean;
+		collapsed?: boolean;
 	}
 
-	let { input, output = $bindable(null), enabled = $bindable(true) }: Props = $props();
+	let {
+		input,
+		output = $bindable(null),
+		enabled = $bindable(true),
+		collapsed = $bindable(true)
+	}: Props = $props();
 
 	function onReset() {
 		mode = 'luminance_rec709';
 	}
 
 	let mode: GrayscaleMode = $state('luminance_rec709');
+	let infoOpen = $state(false);
+
+	const modeInfoTitle = $derived.by(() => {
+		switch (mode) {
+			case 'luminance_rec601':
+			case 'luminance_rec709':
+				return 'Luminance Mode';
+			case 'average':
+				return 'Average Mode';
+			case 'desaturation':
+				return 'Desaturation Mode';
+			case 'red_channel':
+				return 'Red Channel Mode';
+			case 'green_channel':
+				return 'Green Channel Mode';
+			case 'blue_channel':
+				return 'Blue Channel Mode';
+		}
+	});
 
 	$effect(() => {
 		if (!input) {
@@ -140,7 +165,7 @@
 	});
 </script>
 
-<OperatorBase title="Grayscale" icon="blur_linear" bind:enabled {onReset}>
+<OperatorBase title="Grayscale" icon="blur_linear" bind:enabled bind:collapsed {onReset}>
 	<OptionSelect
 		label="Mode"
 		bind:value={mode}
@@ -154,42 +179,30 @@
 			{ id: 'blue_channel', label: 'Blue Channel' }
 		]}
 	/>
-	{#if mode === 'luminance_rec601'}
-		<InfoContainer title="Luminance Mode">
+	<InfoContainer title={modeInfoTitle} bind:open={infoOpen}>
+		{#if mode === 'luminance_rec601'}
 			<p>Uses the luminance formula: <br /> 0.299 * R + 0.587 * G + 0.114 * B</p>
 			<p>
 				This is used primarily for Standard Definition (SD) video and older analog formats because
 				its coefficients are calibrated for the phosphors found in vintage CRT monitors.
 			</p>
-		</InfoContainer>
-	{:else if mode === 'luminance_rec709'}
-		<InfoContainer title="Luminance Mode">
+		{:else if mode === 'luminance_rec709'}
 			<p>Uses the luminance formula: <br /> 0.2126 * R + 0.7152 * G + 0.0722 * B</p>
 			<p>
 				This is the modern industry standard for High Definition (HD) displays and sRGB color
 				spaces, as it more accurately reflects how the human eye perceives brightness on
 				contemporary LED and LCD screens.
 			</p>
-		</InfoContainer>
-	{:else if mode === 'average'}
-		<InfoContainer title="Average Mode">
+		{:else if mode === 'average'}
 			<p>Uses the average formula: (R + G + B) / 3</p>
-		</InfoContainer>
-	{:else if mode === 'desaturation'}
-		<InfoContainer title="Desaturation Mode">
+		{:else if mode === 'desaturation'}
 			<p>Uses the desaturation formula: <br /> (max(R, G, B) + min(R, G, B)) / 2</p>
-		</InfoContainer>
-	{:else if mode === 'red_channel'}
-		<InfoContainer title="Red Channel Mode">
+		{:else if mode === 'red_channel'}
 			<p>Extracts the red channel and uses it as the grayscale value.</p>
-		</InfoContainer>
-	{:else if mode === 'green_channel'}
-		<InfoContainer title="Green Channel Mode">
+		{:else if mode === 'green_channel'}
 			<p>Extracts the green channel and uses it as the grayscale value.</p>
-		</InfoContainer>
-	{:else if mode === 'blue_channel'}
-		<InfoContainer title="Blue Channel Mode">
+		{:else if mode === 'blue_channel'}
 			<p>Extracts the blue channel and uses it as the grayscale value.</p>
-		</InfoContainer>
-	{/if}
+		{/if}
+	</InfoContainer>
 </OperatorBase>

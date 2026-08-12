@@ -26,7 +26,27 @@
 	let histG = $state(new Uint32Array(256));
 	let histB = $state(new Uint32Array(256));
 	let histA = $state(new Uint32Array(256));
-	let maxCount = $state(1);
+	let overallMaxCount = $state(1);
+
+	function getMaxCount(data: Uint32Array): number {
+		let max = 0;
+		for (let i = 0; i < 256; i++) {
+			if (data[i] > max) max = data[i];
+		}
+		return max;
+	}
+
+	let maxCount = $derived.by(() => {
+		const visibleMaxima: number[] = [];
+		if (showR) visibleMaxima.push(getMaxCount(histR));
+		if (showG) visibleMaxima.push(getMaxCount(histG));
+		if (showB) visibleMaxima.push(getMaxCount(histB));
+		if (showA) visibleMaxima.push(getMaxCount(histA));
+
+		if (visibleMaxima.length === 0) return overallMaxCount;
+		const max = Math.max(...visibleMaxima);
+		return max > 0 ? max : 1;
+	});
 
 	let matched = $derived(matchHeight != null && matchHeight > 0);
 
@@ -65,7 +85,7 @@
 		histB = b;
 		histA = a;
 
-		maxCount = max > 0 ? max : 1;
+		overallMaxCount = max > 0 ? max : 1;
 	});
 
 	const createBarPath = (data: Uint32Array, max: number): string => {

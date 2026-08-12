@@ -36,6 +36,7 @@
         flex-direction: column;
         gap: 5px;
         margin-bottom: 10px;
+        min-width: 0;
     }
 
     label {
@@ -55,6 +56,9 @@
         cursor: pointer;
         outline: none;
         transition: border-color 0.15s;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
     .custom_select:focus {
