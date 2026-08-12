@@ -1,5 +1,6 @@
 <script lang="ts">
   import { flip } from "svelte/animate";
+  import { tick } from "svelte";
   import type { Component } from "svelte";
   import type { PixelBuffer } from "$lib/classes/PixelBuffer";
   import PixelBufferLoader from "$lib/components/ImageProcessing/general/PixelBufferLoader.svelte";
@@ -169,15 +170,29 @@
     }
   }
 
-  function moveStep(index: number, direction: number) {
+  function moveStep(
+    index: number,
+    direction: number,
+    trigger?: HTMLButtonElement,
+  ) {
     if (direction === -1 && index === 0) return;
     if (direction === 1 && index === pipeline.length - 1) return;
+
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+
+    // Prevent the browser from following the focused button as its row animates.
+    trigger?.blur();
 
     const newPipeline = [...pipeline];
     const temp = newPipeline[index];
     newPipeline[index] = newPipeline[index + direction];
     newPipeline[index + direction] = temp;
     pipeline = newPipeline;
+
+    void tick().then(() => {
+      window.scrollTo({ left: scrollX, top: scrollY });
+    });
   }
 
   function getInputBuffer(index: number): PixelBuffer | null {
@@ -359,7 +374,8 @@
                   <div class="step-controls">
                     <button
                       class="icon-btn"
-                      onclick={() => moveStep(i, -1)}
+                      onclick={(event) =>
+                        moveStep(i, -1, event.currentTarget as HTMLButtonElement)}
                       disabled={i === 0}
                       title="Move up"
                     >
@@ -368,7 +384,8 @@
                     </button>
                     <button
                       class="icon-btn"
-                      onclick={() => moveStep(i, 1)}
+                      onclick={(event) =>
+                        moveStep(i, 1, event.currentTarget as HTMLButtonElement)}
                       disabled={i === pipeline.length - 1}
                       title="Move down"
                     >
