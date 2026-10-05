@@ -567,7 +567,6 @@
                 ? `${originalImageHeight}px`
                 : null}
             >
-              <span class="step-badge">1</span>
               <div class="step-controls">
                 <button class="icon-btn delete" disabled title="Delete step">
                   <span class="material-icons-round">delete</span>
@@ -647,7 +646,18 @@
                   title="Drag to reorder"
                   use:reorderHandle={step.id}
                 >
-                  <span class="step-badge">{i + 2}</span>
+                  <button
+                    class="icon-btn insert"
+                    type="button"
+                    onclick={() => openAddOperatorPopup(i)}
+                    title="Insert operation before"
+                  >
+                    <span class="insert-icon" aria-hidden="true">
+                      <span class="material-icons-round">keyboard_arrow_up</span
+                      >
+                      <span class="material-icons-round">add</span>
+                    </span>
+                  </button>
                   <button
                     type="button"
                     class="drag-grip-btn"
@@ -660,20 +670,7 @@
                       >drag_indicator</span
                     >
                   </button>
-                  <div class="step-controls">
-                    <button
-                      class="icon-btn insert"
-                      type="button"
-                      onclick={() => openAddOperatorPopup(i)}
-                      title="Insert operation before"
-                    >
-                      <span class="insert-icon" aria-hidden="true">
-                        <span class="material-icons-round"
-                          >keyboard_arrow_up</span
-                        >
-                        <span class="material-icons-round">add</span>
-                      </span>
-                    </button>
+                  <div class="rail-pair">
                     <button
                       class="icon-btn delete"
                       onclick={() => removeStep(i)}
@@ -688,20 +685,23 @@
                     >
                       <span class="material-icons-round">open_in_full</span>
                     </button>
-                    <button
-                      class="icon-btn insert"
-                      type="button"
-                      onclick={() => openAddOperatorPopup(i + 1)}
-                      title="Insert operation after"
-                    >
-                      <span class="insert-icon" aria-hidden="true">
-                        <span class="material-icons-round">add</span>
-                        <span class="material-icons-round"
-                          >keyboard_arrow_down</span
-                        >
-                      </span>
-                    </button>
                   </div>
+                  <span class="drag-grip" aria-hidden="true">
+                    <span class="material-icons-round">drag_indicator</span>
+                  </span>
+                  <button
+                    class="icon-btn insert"
+                    type="button"
+                    onclick={() => openAddOperatorPopup(i + 1)}
+                    title="Insert operation after"
+                  >
+                    <span class="insert-icon" aria-hidden="true">
+                      <span class="material-icons-round">add</span>
+                      <span class="material-icons-round"
+                        >keyboard_arrow_down</span
+                      >
+                    </span>
+                  </button>
                 </div>
 
                 {#if getComponentType(step.type)}
@@ -999,6 +999,10 @@
     cursor: grab;
     touch-action: none;
     user-select: none;
+    box-sizing: border-box;
+    align-self: stretch;
+    height: auto;
+    min-height: 100%;
   }
 
   .drag-handle:hover {
@@ -1010,10 +1014,11 @@
     touch-action: manipulation;
   }
 
+  .drag-grip,
   .drag-grip-btn {
     width: 28px;
-    height: 20px;
-    margin: -6px 0 0;
+    height: 22px;
+    margin: 0;
     padding: 0;
     border: none;
     border-radius: 6px;
@@ -1026,6 +1031,7 @@
     flex-shrink: 0;
   }
 
+  .drag-handle:hover .drag-grip,
   .drag-handle:hover .drag-grip-btn,
   .drag-grip-btn:hover {
     color: #dbeafe;
@@ -1036,6 +1042,7 @@
     outline-offset: 1px;
   }
 
+  .drag-grip .material-icons-round,
   .drag-grip-btn .material-icons-round {
     font-size: 18px;
     line-height: 1;
@@ -1060,7 +1067,7 @@
     align-items: center;
     justify-content: flex-start;
     gap: 14px;
-    padding: 8px 0;
+    padding: 10px 0;
     min-width: 44px;
     border-radius: 14px;
     background: linear-gradient(
@@ -1074,18 +1081,16 @@
       0 10px 24px rgba(0, 0, 0, 0.28);
   }
 
-  .step-badge {
-    background: #3b82f6;
-    color: white;
-    font-weight: bold;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
+  .step-meta-side.drag-handle {
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .rail-pair {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+    gap: 2px;
     flex-shrink: 0;
   }
 
@@ -1094,7 +1099,7 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 6px;
+    gap: 2px;
     flex: 1 1 auto;
     align-self: stretch;
   }
@@ -1141,6 +1146,11 @@
     opacity: 0.32;
     cursor: not-allowed;
     box-shadow: none;
+  }
+
+  .icon-btn.delete {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.45);
   }
 
   .icon-btn.delete:hover {
