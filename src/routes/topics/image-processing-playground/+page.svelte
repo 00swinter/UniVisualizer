@@ -71,6 +71,10 @@
 
   let originalImage: PixelBuffer | null = $state(null);
   let pipeline: PipelineStep[] = $state([]);
+  let dragId = $state<string | null>(null);
+  let dragOffsetY = $state(0);
+  let dragActive = $state(false);
+  let dragSettling = $state(false);
   let showAddOperatorPopup = $state(false);
   let pendingInsertIndex: number | null = $state(null);
   let expandedPreviewId: string | null = $state(null);
@@ -197,30 +201,250 @@
     }
   }
 
-  function moveStep(
-    index: number,
-    direction: number,
-    trigger?: HTMLButtonElement,
-  ) {
-    if (direction === -1 && index === 0) return;
-    if (direction === 1 && index === pipeline.length - 1) return;
+  let grabOffsetY = 0;
+  let lastPointerY = 0;
+  let scrollLoop = 0;
+  let settleTimer = 0;
+  let settleRaf = 0;
+  let detachDragListeners: (() => void) | null = null;
+  let removeClickSuppressor: (() => void) | null = null;
 
+  function layoutBox(el: HTMLElement) {
+    const rect = el.getBoundingClientRect();
+    const transform = getComputedStyle(el).transform;
+    const translateY =
+      !transform || transform === "none" ? 0 : new DOMMatrix(transform).m42;
+    const top = rect.top - translateY;
+    return { top, height: rect.height, bottom: top + rect.height };
+  }
+
+  function reorderStep(from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || to >= pipeline.length) return;
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
-
-    // Prevent the browser from following the focused button as its row animates.
-    trigger?.blur();
-
-    const newPipeline = [...pipeline];
-    const temp = newPipeline[index];
-    newPipeline[index] = newPipeline[index + direction];
-    newPipeline[index + direction] = temp;
-    pipeline = newPipeline;
-
+    const next = pipeline.slice();
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    pipeline = next;
     void tick().then(() => {
       window.scrollTo({ left: scrollX, top: scrollY });
     });
   }
+
+  function onReorderKeydown(event: KeyboardEvent, index: number) {
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      reorderStep(index, index - 1);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      reorderStep(index, index + 1);
+    }
+  }
+
+  function stepRow(id: string): HTMLElement | null {
+    return document.querySelector<HTMLElement>(`[data-step-id="${id}"]`);
+  }
+
+  function stopScrollLoop() {
+    if (scrollLoop) cancelAnimationFrame(scrollLoop);
+    scrollLoop = 0;
+  }
+
+  function clearSettle() {
+    if (settleTimer) window.clearTimeout(settleTimer);
+    if (settleRaf) cancelAnimationFrame(settleRaf);
+    settleTimer = 0;
+    settleRaf = 0;
+  }
+
+  function applyDrag(clientY: number) {
+    if (!dragId || !dragActive) return;
+    const from = pipeline.findIndex((step) => step.id === dragId);
+    if (from < 0) return;
+
+    const boxes = pipeline.map((step) => {
+      const el = stepRow(step.id);
+      return el ? layoutBox(el) : null;
+    });
+    const fromBox = boxes[from];
+    if (!fromBox) return;
+
+    let target = from;
+    for (let i = 0; i < boxes.length; i++) {
+      const box = boxes[i];
+      if (!box || i === from) continue;
+      const mid = box.top + box.height / 2;
+      if (i < from && clientY < mid) {
+        target = i;
+        break;
+      }
+      if (i > from && clientY > mid) target = i;
+    }
+
+    let top = fromBox.top;
+    if (target !== from) {
+      const targetBox = boxes[target];
+      if (targetBox) {
+        top =
+          target < from ? targetBox.top : targetBox.bottom - fromBox.height;
+      }
+      const next = pipeline.slice();
+      const [item] = next.splice(from, 1);
+      next.splice(target, 0, item);
+      pipeline = next;
+    }
+
+    dragOffsetY = clientY - grabOffsetY - top;
+  }
+
+  function ensureScrollLoop() {
+    if (scrollLoop) return;
+    const loop = () => {
+      if (!dragActive) {
+        scrollLoop = 0;
+        return;
+      }
+      const edge = 72;
+      const maxSpeed = 18;
+      let speed = 0;
+      if (lastPointerY < edge) {
+        speed = -Math.ceil(((edge - lastPointerY) / edge) * maxSpeed);
+      } else if (lastPointerY > window.innerHeight - edge) {
+        speed = Math.ceil(
+          ((lastPointerY - (window.innerHeight - edge)) / edge) * maxSpeed,
+        );
+      }
+      if (speed !== 0) {
+        window.scrollBy(0, speed);
+        applyDrag(lastPointerY);
+      }
+      scrollLoop = requestAnimationFrame(loop);
+    };
+    scrollLoop = requestAnimationFrame(loop);
+  }
+
+  function finishOperatorDrag() {
+    stopScrollLoop();
+    document.body.classList.remove("is-operator-drag");
+    if (dragActive) applyDrag(lastPointerY);
+    if (!dragActive) return;
+    dragActive = false;
+    dragSettling = true;
+    settleRaf = requestAnimationFrame(() => {
+      settleRaf = requestAnimationFrame(() => {
+        settleRaf = 0;
+        dragOffsetY = 0;
+        settleTimer = window.setTimeout(() => {
+          dragSettling = false;
+          dragId = null;
+          settleTimer = 0;
+        }, 190);
+      });
+    });
+  }
+
+  function reorderHandle(node: HTMLElement, stepId: string) {
+    let id = stepId;
+    const onPointerDown = (event: PointerEvent) => {
+      startOperatorDrag(event, id);
+    };
+    node.addEventListener("pointerdown", onPointerDown);
+    return {
+      update(nextId: string) {
+        id = nextId;
+      },
+      destroy() {
+        node.removeEventListener("pointerdown", onPointerDown);
+      },
+    };
+  }
+
+  function startOperatorDrag(event: PointerEvent, id: string) {
+    if (event.button !== 0 || dragActive) return;
+    const handle = event.currentTarget as HTMLElement;
+    const row = handle.closest<HTMLElement>(".step-item");
+    if (!row) return;
+
+    if (dragSettling) {
+      clearSettle();
+      dragSettling = false;
+      dragOffsetY = 0;
+      dragId = null;
+    }
+
+    const pointerId = event.pointerId;
+    const pointerOffset = event.clientY - row.getBoundingClientRect().top;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let activated = false;
+    let suppressClick = false;
+
+    const onMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      if (!activated) {
+        const dx = moveEvent.clientX - startX;
+        const dy = moveEvent.clientY - startY;
+        if (dx * dx + dy * dy < 64) return;
+        activated = true;
+        suppressClick = true;
+        grabOffsetY = pointerOffset;
+        dragId = id;
+        dragOffsetY =
+          moveEvent.clientY - pointerOffset - row.getBoundingClientRect().top;
+        dragActive = true;
+        document.body.classList.add("is-operator-drag");
+        ensureScrollLoop();
+      }
+      if (moveEvent.cancelable) moveEvent.preventDefault();
+      lastPointerY = moveEvent.clientY;
+      applyDrag(moveEvent.clientY);
+    };
+
+    const onClickCapture = (clickEvent: MouseEvent) => {
+      if (!suppressClick) return;
+      clickEvent.preventDefault();
+      clickEvent.stopPropagation();
+    };
+
+    const detach = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      if (detachDragListeners === detach) detachDragListeners = null;
+    };
+
+    const onUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return;
+      detach();
+      if (upEvent.type === "pointercancel") {
+        suppressClick = false;
+        removeClickSuppressor?.();
+      }
+      if (activated) finishOperatorDrag();
+    };
+
+    detachDragListeners?.();
+    removeClickSuppressor?.();
+    window.addEventListener("click", onClickCapture, { capture: true, once: true });
+    removeClickSuppressor = () => {
+      window.removeEventListener("click", onClickCapture, true);
+      removeClickSuppressor = null;
+    };
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    detachDragListeners = detach;
+  }
+
+  $effect(() => {
+    return () => {
+      detachDragListeners?.();
+      removeClickSuppressor?.();
+      stopScrollLoop();
+      clearSettle();
+      document.body.classList.remove("is-operator-drag");
+    };
+  });
 
   function getInputBuffer(index: number): PixelBuffer | null {
     if (index === 0) return originalImage;
@@ -345,9 +569,6 @@
             >
               <span class="step-badge">1</span>
               <div class="step-controls">
-                <button class="icon-btn" disabled title="Move up">
-                  <span class="material-icons-round">keyboard_arrow_up</span>
-                </button>
                 <button class="icon-btn delete" disabled title="Delete step">
                   <span class="material-icons-round">delete</span>
                 </button>
@@ -358,9 +579,6 @@
                   title="Expand preview"
                 >
                   <span class="material-icons-round">open_in_full</span>
-                </button>
-                <button class="icon-btn" disabled title="Move down">
-                  <span class="material-icons-round">keyboard_arrow_down</span>
                 </button>
               </div>
             </div>
@@ -404,18 +622,44 @@
     </div>
 
     {#each pipeline as step, i (step.id)}
-      <div class="step-item" animate:flip={{ duration: 1500 }}>
+      <div
+        class="step-item"
+        class:is-dragging={dragActive && dragId === step.id}
+        class:is-settling={dragSettling && dragId === step.id}
+        data-step-id={step.id}
+        animate:flip={{ duration: dragId === step.id ? 0 : 280 }}
+      >
+        <div
+          class="step-drag-surface"
+          style:transform={dragId === step.id
+            ? `translate3d(0, ${dragOffsetY}px, 0)`
+            : undefined}
+        >
         <div class="step-row">
           <div class="flow">
             <div class="node op-node">
               <div class="operator-shell">
                 <div
-                  class="step-meta step-meta-side"
+                  class="step-meta step-meta-side drag-handle"
                   style:height={stepImageHeights[step.id]
                     ? `${stepImageHeights[step.id]}px`
                     : null}
+                  title="Drag to reorder"
+                  use:reorderHandle={step.id}
                 >
                   <span class="step-badge">{i + 2}</span>
+                  <button
+                    type="button"
+                    class="drag-grip-btn"
+                    aria-label={`Drag to reorder ${step.label}`}
+                    aria-grabbed={dragActive && dragId === step.id}
+                    title="Drag to reorder"
+                    onkeydown={(event) => onReorderKeydown(event, i)}
+                  >
+                    <span class="material-icons-round" aria-hidden="true"
+                      >drag_indicator</span
+                    >
+                  </button>
                   <div class="step-controls">
                     <button
                       class="icon-btn insert"
@@ -431,20 +675,6 @@
                       </span>
                     </button>
                     <button
-                      class="icon-btn"
-                      onclick={(event) =>
-                        moveStep(
-                          i,
-                          -1,
-                          event.currentTarget as HTMLButtonElement,
-                        )}
-                      disabled={i === 0}
-                      title="Move up"
-                    >
-                      <span class="material-icons-round">keyboard_arrow_up</span
-                      >
-                    </button>
-                    <button
                       class="icon-btn delete"
                       onclick={() => removeStep(i)}
                       title="Delete step"
@@ -457,21 +687,6 @@
                       title="Expand preview"
                     >
                       <span class="material-icons-round">open_in_full</span>
-                    </button>
-                    <button
-                      class="icon-btn"
-                      onclick={(event) =>
-                        moveStep(
-                          i,
-                          1,
-                          event.currentTarget as HTMLButtonElement,
-                        )}
-                      disabled={i === pipeline.length - 1}
-                      title="Move down"
-                    >
-                      <span class="material-icons-round"
-                        >keyboard_arrow_down</span
-                      >
                     </button>
                     <button
                       class="icon-btn insert"
@@ -570,6 +785,7 @@
               />
             </div>
           </div>
+        </div>
         </div>
       </div>
     {/each}
@@ -756,6 +972,79 @@
     display: flex;
     flex-direction: column;
     will-change: transform;
+    border-radius: 16px;
+  }
+
+  .step-item.is-dragging,
+  .step-item.is-settling {
+    position: relative;
+    z-index: 20;
+  }
+
+  .step-item.is-dragging {
+    background: rgba(59, 130, 246, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.28);
+  }
+
+  .step-item.is-dragging .step-drag-surface {
+    filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.42));
+    pointer-events: none;
+  }
+
+  .step-item.is-settling .step-drag-surface {
+    transition: transform 180ms ease;
+  }
+
+  .drag-handle {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .drag-handle:hover {
+    border-color: rgba(96, 165, 250, 0.4);
+  }
+
+  .drag-handle .icon-btn {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .drag-grip-btn {
+    width: 28px;
+    height: 20px;
+    margin: -6px 0 0;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #7d8ba0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    flex-shrink: 0;
+  }
+
+  .drag-handle:hover .drag-grip-btn,
+  .drag-grip-btn:hover {
+    color: #dbeafe;
+  }
+
+  .drag-grip-btn:focus-visible {
+    outline: 2px solid rgba(96, 165, 250, 0.85);
+    outline-offset: 1px;
+  }
+
+  .drag-grip-btn .material-icons-round {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  :global(body.is-operator-drag),
+  :global(body.is-operator-drag *) {
+    cursor: grabbing !important;
+    user-select: none !important;
   }
 
   .step-meta {
