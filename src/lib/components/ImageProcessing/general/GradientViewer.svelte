@@ -188,6 +188,18 @@
     hoveredColumnIndex = null;
   }
 
+  /** Same channels as the row chart's R, G, B, and A buttons. */
+  function rowPixelBackground(pixel: RowPixel): string {
+    if (chartShowA && !chartShowR && !chartShowG && !chartShowB) {
+      return `rgb(${pixel.a}, ${pixel.a}, ${pixel.a})`;
+    }
+
+    const r = chartShowR ? pixel.r : 0;
+    const g = chartShowG ? pixel.g : 0;
+    const b = chartShowB ? pixel.b : 0;
+    return `rgba(${r}, ${g}, ${b}, ${pixel.a / 255})`;
+  }
+
   $effect(() => {
     if (chartCanvas && rowData) {
       const ctx = chartCanvas.getContext("2d");
@@ -353,7 +365,7 @@
                     <div
                       class="row-pixel"
                       class:hovered={hoveredColumnIndex === index}
-                      style={`background: rgba(${pixel.r}, ${pixel.g}, ${pixel.b}, ${pixel.a / 255})`}
+                      style:background={rowPixelBackground(pixel)}
                       title={`x=${index}, y=${rowIndex}, rgba(${pixel.r}, ${pixel.g}, ${pixel.b}, ${pixel.a})`}
                     ></div>
                   {/each}

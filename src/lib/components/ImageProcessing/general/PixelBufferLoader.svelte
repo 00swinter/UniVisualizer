@@ -10,7 +10,30 @@
 
 let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props();
 
+  const SAFE_MAX = 250;
+
   let resolution = $state(250);
+  let allowHighRes = $state(false);
+  let sliderMax = $derived(allowHighRes ? maxRes : Math.min(SAFE_MAX, maxRes));
+
+  function onHighResToggle(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    if (input.checked) {
+      const ok = window.confirm(
+        `Resolutions above ${SAFE_MAX}px can be slow and may freeze the page. Allow up to ${maxRes}px?`,
+      );
+      if (!ok) {
+        input.checked = false;
+        return;
+      }
+      allowHighRes = true;
+      return;
+    }
+
+    allowHighRes = false;
+    const capped = Math.min(SAFE_MAX, maxRes);
+    if (resolution > capped) resolution = capped;
+  }
   let isLoading = $state(false);
   let selectedExample = $state("");
   let customUrl = $state("");
@@ -71,6 +94,22 @@ let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props(
     {
       name: "TV Pixelart",
       url: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Pixelart-tv-iso.svg/1280px-Pixelart-tv-iso.svg.png",
+    },
+    {
+      name: "Cards",
+      url: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/AcetoFive.JPG/1920px-AcetoFive.jpg",
+    },
+    {
+      name: "Space Shuttle",
+      url: "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1d/STS-133_Space_Shuttle_Discovery_after_undocking_3_%28cropped%29.jpg/1280px-STS-133_Space_Shuttle_Discovery_after_undocking_3_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    },
+    {
+      name: "Covered bridge",
+      url: "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/47/QuinlansBridge.JPG/960px-QuinlansBridge.JPG?utm_source=en.wikipedia.org&utm_campaign=index&utm_content=thumbnail",
+    },
+    {
+      name: "German Text",
+      url: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ee/Blocksatz-Beispiel_deutsch%2C_German_text_sample_with_fully_justified_text.svg/1280px-Blocksatz-Beispiel_deutsch%2C_German_text_sample_with_fully_justified_text.svg.png?utm_source=de.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
     },
   ];
 
@@ -160,11 +199,27 @@ let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props(
         <input
           type="range"
           min="5"
-          max={maxRes}
+          max={sliderMax}
           bind:value={resolution}
           disabled={!sourceImage}
         />
         <span class="val">{resolution}px</span>
+        <label
+          class="high-res"
+          class:active={allowHighRes}
+          title={allowHighRes
+            ? `High resolution on (up to ${maxRes}px). This can be slow.`
+            : `Allow up to ${maxRes}px. Higher resolutions can be slow.`}
+        >
+          <input
+            type="checkbox"
+            checked={allowHighRes}
+            aria-label={allowHighRes
+              ? "High resolution enabled, may be slow"
+              : "Allow high resolution"}
+            onchange={onHighResToggle}
+          />
+        </label>
       </div>
 
       <button class="btn-main" onclick={() => (isMenuOpen = true)}>
@@ -297,7 +352,7 @@ let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props(
   input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
-    width: 82px;
+    width: 280px;
     height: 18px;
     margin: 0;
     background: transparent;
@@ -374,6 +429,25 @@ let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props(
     height: 4px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--accent) 45%, #333);
+  }
+
+  .high-res {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .high-res input {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .high-res.active input {
+    accent-color: #f59e0b;
   }
 
   .btn-main {
@@ -596,6 +670,12 @@ let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props(
   }
   .btn-upload:hover {
     background: #404040;
+  }
+
+  @media (max-width: 640px) {
+    input[type="range"] {
+      width: 148px;
+    }
   }
 
   @media (max-width: 480px) {

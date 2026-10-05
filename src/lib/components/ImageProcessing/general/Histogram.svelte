@@ -66,6 +66,8 @@
 	});
 
 	let matched = $derived(matchHeight != null && matchHeight > 0);
+	/** Click locks the vertical bar so the image highlight stays after the pointer leaves. */
+	let pinned = $state(false);
 	let hoveredBinLines = $derived.by(() => {
 		if (hoveredBin == null) return [];
 
@@ -78,15 +80,59 @@
 		return values;
 	});
 
-	function updateHoveredBin(event: MouseEvent) {
+	function binFromPointer(event: MouseEvent): number {
 		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
 		const relativeX = Math.max(0, Math.min(event.clientX - rect.left, rect.width));
-		const bin = Math.floor((relativeX / rect.width) * 256);
-		hoveredBin = Math.max(0, Math.min(bin, 255));
+		const bin = Math.floor((relativeX / Math.max(rect.width, 1)) * 256);
+		return Math.max(0, Math.min(bin, 255));
+	}
+
+	function updateHoveredBin(event: MouseEvent) {
+		if (pinned) return;
+		hoveredBin = binFromPointer(event);
 	}
 
 	function clearHoveredBin() {
+		if (pinned) return;
 		hoveredBin = null;
+	}
+
+	function togglePinnedBin(event: MouseEvent) {
+		if (pinned) {
+			pinned = false;
+			hoveredBin = binFromPointer(event);
+			return;
+		}
+
+		pinned = true;
+		hoveredBin = binFromPointer(event);
+	}
+
+	function onChartKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			if (pinned) {
+				pinned = false;
+				hoveredBin = null;
+				return;
+			}
+
+			pinned = true;
+			hoveredBin ??= 0;
+			return;
+		}
+
+		if (event.key === 'Escape') {
+			pinned = false;
+			hoveredBin = null;
+			return;
+		}
+
+		const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+		if (step === 0) return;
+
+		event.preventDefault();
+		hoveredBin = Math.max(0, Math.min((hoveredBin ?? 0) + step, 255));
 	}
 
 	$effect(() => {
@@ -201,10 +247,19 @@
 
 	<div
 		class="graph-container"
-		role="img"
-		aria-label="Histogram chart"
+		class:pinned
+		role="slider"
+		tabindex="0"
+		aria-valuemin={0}
+		aria-valuemax={255}
+		aria-valuenow={hoveredBin ?? 0}
+		aria-label={pinned
+			? 'Histogram bin, selected. Click to release.'
+			: 'Histogram bin. Click to keep the bin selected.'}
 		onmousemove={updateHoveredBin}
 		onmouseleave={clearHoveredBin}
+		onclick={togglePinnedBin}
+		onkeydown={onChartKeydown}
 	>
 		<div class="y-label top">{maxCount}</div>
 		<div class="y-label mid">{Math.round(maxCount / 2)}</div>
@@ -244,6 +299,7 @@
 					x2={((hoveredBin + 0.5) / 256) * 100}
 					y2="100"
 					class="hover-line"
+					class:selected={pinned}
 				/>
 			{/if}
 
@@ -386,6 +442,17 @@
 		position: relative;
 		flex: 1 1 auto;
 		min-height: 0;
+		cursor: crosshair;
+	}
+
+	.graph-container.pinned {
+		cursor: pointer;
+		border-color: rgba(255, 255, 255, 0.55);
+	}
+
+	.graph-container:focus-visible {
+		outline: 1px solid #93c5fd;
+		outline-offset: 2px;
 	}
 
 	.operator-card.matched .graph-container {
@@ -470,6 +537,11 @@
 		stroke: rgba(255, 255, 255, 0.5);
 		stroke-width: 1;
 		vector-effect: non-scaling-stroke;
+	}
+
+	.hover-line.selected {
+		stroke: #fff;
+		stroke-width: 2;
 	}
 
 	.x-labels {

@@ -13,6 +13,7 @@
   import HistogramEqualisation_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/HistogramEqualisation_Operator.svelte";
   import HistogramNormalisation_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/HistogramNormalisation_Operator.svelte";
   import Threshold_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Threshold_Operator.svelte";
+  import Canny_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Canny_Operator.svelte";
   import Morphology_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Morphology_Operator.svelte";
   import Transformation_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Transformation_Operator.svelte";
 
@@ -59,6 +60,7 @@
       component: HistogramEqualisation_Operator,
     },
     { type: "threshold", label: "Threshold", component: Threshold_Operator },
+    { type: "canny", label: "Canny", component: Canny_Operator },
     { type: "morphology", label: "Morphology", component: Morphology_Operator },
     {
       type: "transformation",

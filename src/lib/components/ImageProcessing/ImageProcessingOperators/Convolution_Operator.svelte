@@ -22,6 +22,8 @@
 		| 'laplace_diag'
 		| 'sobel_x'
 		| 'sobel_y'
+		| 'roberts_x'
+		| 'roberts_y'
 		| 'emboss'
 		| 'custom';
 
@@ -37,6 +39,9 @@
 		laplace_diag: [1, 1, 1, 1, -8, 1, 1, 1, 1],
 		sobel_x: [-1, 0, 1, -2, 0, 2, -1, 0, 1],
 		sobel_y: [-1, -2, -1, 0, 0, 0, 1, 2, 1],
+		// 2×2 Roberts cross, zero-padded into the 3×3 grid
+		roberts_x: [1, 0, 0, 0, -1, 0, 0, 0, 0],
+		roberts_y: [0, 1, 0, -1, 0, 0, 0, 0, 0],
 		emboss: [-2, -1, 0, -1, 1, 1, 0, 1, 2]
 	};
 
@@ -49,6 +54,8 @@
 		{ id: 'laplace_diag', label: 'Laplace (8-neighbor)' },
 		{ id: 'sobel_x', label: 'Sobel X' },
 		{ id: 'sobel_y', label: 'Sobel Y' },
+		{ id: 'roberts_x', label: 'Roberts X' },
+		{ id: 'roberts_y', label: 'Roberts Y' },
 		{ id: 'emboss', label: 'Emboss' },
 		{ id: 'custom', label: 'Custom' }
 	];
@@ -93,6 +100,16 @@
 			title: 'Sobel Y',
 			description:
 				'Detects horizontal edges by measuring vertical gradients (top vs bottom). Strong responses where brightness changes up/down.'
+		},
+		roberts_x: {
+			title: 'Roberts X',
+			description:
+				'A 2×2 diagonal edge detector, padded with zeros in this 3×3 grid. Subtracts a pixel from its upper-left neighbor, so it responds where brightness changes along that diagonal.'
+		},
+		roberts_y: {
+			title: 'Roberts Y',
+			description:
+				'The other half of the Roberts cross. Subtracts a pixel from its upper-right neighbor and responds to the opposite diagonal. Use both directions to catch diagonal edges in a very small neighborhood.'
 		},
 		emboss: {
 			title: 'Emboss',
@@ -189,7 +206,7 @@
 					b /= kernelSum;
 					if (shouldMutateAlpha) a /= kernelSum;
 				} else {
-					// Zero-sum kernels (Sobel/Laplace): abs so edges stay visible
+					// Zero-sum kernels (Sobel/Roberts/Laplace): abs so edges stay visible
 					r = Math.abs(r);
 					g = Math.abs(g);
 					b = Math.abs(b);
