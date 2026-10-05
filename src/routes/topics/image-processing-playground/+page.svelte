@@ -14,6 +14,7 @@
   import HistogramNormalisation_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/HistogramNormalisation_Operator.svelte";
   import Threshold_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Threshold_Operator.svelte";
   import Canny_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Canny_Operator.svelte";
+  import Hough_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Hough_Operator.svelte";
   import Morphology_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Morphology_Operator.svelte";
   import Transformation_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Transformation_Operator.svelte";
 
@@ -61,6 +62,7 @@
     },
     { type: "threshold", label: "Threshold", component: Threshold_Operator },
     { type: "canny", label: "Canny", component: Canny_Operator },
+    { type: "hough", label: "Hough Transform", component: Hough_Operator },
     { type: "morphology", label: "Morphology", component: Morphology_Operator },
     {
       type: "transformation",
@@ -159,6 +161,103 @@
   /** Matches GradientViewer media-box border + padding so hist tops align with the image. */
   const IMAGE_INSET = 11;
   const ORIGINAL_PREVIEW_ID = "__original__";
+  /** Picture width floor used by GradientViewer. */
+  const MIN_IMAGE_WIDTH = 160;
+  /** Keep the histogram readable while the image claims the rest of the row. */
+  const MIN_HIST_WIDTH = 200;
+
+  /**
+   * Shared picture width (px). Null keeps each image on its automatic size.
+   * A sideways drag sets this; height follows the image aspect ratio.
+   */
+  let previewImageWidth = $state<number | null>(null);
+  let imageResizing = $state(false);
+  let imageResizeCleanup: (() => void) | null = null;
+
+  function resizeLimits(flow: HTMLElement) {
+    const frame = flow.querySelector<HTMLElement>(".image-frame");
+    const imageNode = flow.querySelector<HTMLElement>(".image-node");
+    const operator = flow.querySelector<HTMLElement>(".op-node");
+    if (!frame || !imageNode || !operator) return null;
+
+    const frameWidth = frame.getBoundingClientRect().width;
+    const chrome = imageNode.getBoundingClientRect().width - frameWidth;
+    const gap = Number.parseFloat(getComputedStyle(flow).columnGap) || 0;
+    const available =
+      flow.clientWidth -
+      operator.getBoundingClientRect().width -
+      gap * 2 -
+      chrome -
+      MIN_HIST_WIDTH;
+
+    return {
+      frameWidth,
+      maxWidth: Math.max(MIN_IMAGE_WIDTH, available),
+    };
+  }
+
+  function clampImageWidth(width: number, maxWidth: number) {
+    return Math.round(Math.max(MIN_IMAGE_WIDTH, Math.min(maxWidth, width)));
+  }
+
+  function startImageResize(event: PointerEvent) {
+    if (event.button !== 0 || imageResizing) return;
+    const handle = event.currentTarget as HTMLElement;
+    const flow = handle.closest<HTMLElement>(".flow");
+    if (!flow) return;
+    const limits = resizeLimits(flow);
+    if (!limits) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const pointerId = event.pointerId;
+    const startX = event.clientX;
+    const { frameWidth, maxWidth } = limits;
+
+    const onMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      if (moveEvent.cancelable) moveEvent.preventDefault();
+      previewImageWidth = clampImageWidth(
+        frameWidth + (moveEvent.clientX - startX),
+        maxWidth,
+      );
+    };
+
+    const detach = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      imageResizing = false;
+      document.body.classList.remove("is-image-resize");
+      if (imageResizeCleanup === detach) imageResizeCleanup = null;
+    };
+
+    const onUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return;
+      detach();
+    };
+
+    imageResizeCleanup?.();
+    imageResizing = true;
+    document.body.classList.add("is-image-resize");
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    imageResizeCleanup = detach;
+  }
+
+  function onImageResizeKeydown(event: KeyboardEvent) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    const handle = event.currentTarget as HTMLElement;
+    const flow = handle.closest<HTMLElement>(".flow");
+    if (!flow) return;
+    const limits = resizeLimits(flow);
+    if (!limits) return;
+    event.preventDefault();
+    const delta = event.key === "ArrowRight" ? 24 : -24;
+    previewImageWidth = clampImageWidth(limits.frameWidth + delta, limits.maxWidth);
+  }
 
   function openAddOperatorPopup(insertIndex: number | null = null) {
     pendingInsertIndex = insertIndex;
@@ -440,10 +539,32 @@
     return () => {
       detachDragListeners?.();
       removeClickSuppressor?.();
+      imageResizeCleanup?.();
       stopScrollLoop();
       clearSettle();
       document.body.classList.remove("is-operator-drag");
+      document.body.classList.remove("is-image-resize");
     };
+  });
+
+  $effect(() => {
+    const viewport = windowWidth;
+    if (previewImageWidth == null || imageResizing) return;
+    const frameId = requestAnimationFrame(() => {
+      if (viewport !== windowWidth || previewImageWidth == null) return;
+      const flow = document.querySelector<HTMLElement>(".page-layout .flow");
+      if (!flow) return;
+      const limits = resizeLimits(flow);
+      if (!limits) return;
+      const overflow = limits.frameWidth - limits.maxWidth;
+      if (overflow > 2) {
+        previewImageWidth = clampImageWidth(
+          limits.frameWidth - overflow,
+          limits.maxWidth,
+        );
+      }
+    });
+    return () => cancelAnimationFrame(frameId);
   });
 
   function getInputBuffer(index: number): PixelBuffer | null {
@@ -553,6 +674,25 @@
 
 <svelte:window bind:innerWidth={windowWidth} bind:innerHeight={windowHeight} />
 
+{#snippet imageResizeHandle(height: number)}
+  <button
+    type="button"
+    class="image-resize-handle"
+    style:height={height > 0 ? `${height}px` : undefined}
+    aria-label="Resize image"
+    title="Drag sideways to resize the image"
+    onpointerdown={startImageResize}
+    onkeydown={onImageResizeKeydown}
+  >
+    <span class="resize-line" aria-hidden="true"></span>
+    <span class="resize-grip" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </span>
+  </button>
+{/snippet}
+
 <div class="page-layout">
   <PixelBufferLoader bind:buffer={originalImage} hidden={!!expandedPreviewId} />
 
@@ -589,9 +729,10 @@
           </div>
         </div>
 
-        <div class="node image-node">
+        <div class="node image-node" class:size-locked={previewImageWidth != null}>
           <GradientViewer
             buffer={originalImage}
+            imageWidth={previewImageWidth ?? undefined}
             bind:imageHeight={originalImageHeight}
             bind:hoveredColumnIndex={origGradCol}
             bind:hoveredColumnValues={origGradValues}
@@ -600,6 +741,9 @@
             externalHighlightChannels={origHistChannels}
             onExpand={() => openExpandedPreview(ORIGINAL_PREVIEW_ID, "image")}
           />
+          {#if originalImage}
+            {@render imageResizeHandle(originalImageHeight)}
+          {/if}
         </div>
 
         <div class="node hist-node">
@@ -716,9 +860,10 @@
               </div>
             </div>
 
-            <div class="node image-node">
+            <div class="node image-node" class:size-locked={previewImageWidth != null}>
               <GradientViewer
                 buffer={step.output}
+                imageWidth={previewImageWidth ?? undefined}
                 onExpand={() => openExpandedPreview(step.id, "image")}
                 bind:imageHeight={
                   () => stepImageHeights[step.id] ?? 0,
@@ -752,6 +897,9 @@
                   a: false,
                 }}
               />
+              {#if step.output}
+                {@render imageResizeHandle(stepImageHeights[step.id] ?? 0)}
+              {/if}
             </div>
 
             <div class="node hist-node">
@@ -1054,6 +1202,12 @@
     user-select: none !important;
   }
 
+  :global(body.is-image-resize),
+  :global(body.is-image-resize *) {
+    cursor: ew-resize !important;
+    user-select: none !important;
+  }
+
   .step-meta {
     display: flex;
     align-items: center;
@@ -1241,6 +1395,98 @@
     flex: 0 0 auto;
     width: fit-content;
     max-width: min(640px, 45vw);
+    z-index: 2;
+  }
+
+  .image-node.size-locked {
+    max-width: none;
+  }
+
+  .image-resize-handle {
+    position: absolute;
+    z-index: 5;
+    top: 11px;
+    right: -15px;
+    width: 18px;
+    min-height: 80px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: ew-resize;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .image-resize-handle:focus-visible {
+    outline: none;
+  }
+
+  .resize-line {
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.35);
+    pointer-events: none;
+  }
+
+  .resize-grip {
+    position: relative;
+    z-index: 1;
+    width: 14px;
+    height: 28px;
+    border-radius: 8px;
+    background: linear-gradient(
+      180deg,
+      rgba(38, 48, 66, 0.98),
+      rgba(20, 27, 39, 0.98)
+    );
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 6px 14px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    pointer-events: none;
+  }
+
+  .resize-grip span {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #94a3b8;
+  }
+
+  .image-resize-handle:hover .resize-line,
+  .image-resize-handle:focus-visible .resize-line,
+  :global(body.is-image-resize) .resize-line {
+    background: rgba(96, 165, 250, 0.85);
+  }
+
+  .image-resize-handle:hover .resize-grip,
+  .image-resize-handle:focus-visible .resize-grip,
+  :global(body.is-image-resize) .resize-grip {
+    border-color: rgba(96, 165, 250, 0.85);
+    background: linear-gradient(
+      180deg,
+      rgba(59, 130, 246, 0.4),
+      rgba(30, 58, 138, 0.55)
+    );
+  }
+
+  .image-resize-handle:hover .resize-grip span,
+  .image-resize-handle:focus-visible .resize-grip span,
+  :global(body.is-image-resize) .resize-grip span {
+    background: #eff6ff;
   }
 
   .hist-node {
