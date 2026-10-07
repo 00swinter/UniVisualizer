@@ -56,17 +56,9 @@
 	let anchorX = $state(0.5);
 	let anchorY = $state(0.5);
 	let frameMode = $state<FrameMode>('original');
-	let margin = $state(0);
 	let customWidth = $state(0);
 	let customHeight = $state(0);
 	let customSizeTouched = $state(false);
-	let dimsLinked = $state(false);
-	let dimAspect = $state(1);
-	/** null means the frame is parked on the transformed image instead of the input. */
-	let placeX = $state<number | null>(0.5);
-	let placeY = $state<number | null>(0.5);
-	let freeOriginX = $state(0);
-	let freeOriginY = $state(0);
 	let flipX = $state(false);
 	let flipY = $state(false);
 	let shearX = $state(0);
@@ -88,14 +80,7 @@
 		anchorX = 0.5;
 		anchorY = 0.5;
 		frameMode = 'original';
-		margin = 0;
 		customSizeTouched = false;
-		dimsLinked = false;
-		dimAspect = 1;
-		placeX = 0.5;
-		placeY = 0.5;
-		freeOriginX = 0;
-		freeOriginY = 0;
 		flipX = false;
 		flipY = false;
 		shearX = 0;
@@ -121,33 +106,14 @@
 
 	function setCustomWidth(next: number) {
 		if (!Number.isFinite(next)) return;
-		const w = clampDim(next);
 		customSizeTouched = true;
-		customWidth = w;
-		if (dimsLinked) customHeight = clampDim(Math.round(w / Math.max(dimAspect, 1e-4)));
+		customWidth = clampDim(next);
 	}
 
 	function setCustomHeight(next: number) {
 		if (!Number.isFinite(next)) return;
-		const h = clampDim(next);
 		customSizeTouched = true;
-		customHeight = h;
-		if (dimsLinked) customWidth = clampDim(Math.round(h * dimAspect));
-	}
-
-	function toggleDimLink() {
-		dimsLinked = !dimsLinked;
-		if (dimsLinked) dimAspect = Math.max(1, customWidth) / Math.max(1, customHeight);
-	}
-
-	function matchInputSize() {
-		if (!input) return;
-		customSizeTouched = true;
-		dimsLinked = false;
-		customWidth = input.width;
-		customHeight = input.height;
-		placeX = 0.5;
-		placeY = 0.5;
+		customHeight = clampDim(next);
 	}
 
 	function transformedBounds(
@@ -207,38 +173,6 @@
 			width: Math.max(1, right - left),
 			height: Math.max(1, bottom - top)
 		};
-	}
-
-	function currentBounds(): Bounds | null {
-		if (!input) return null;
-		return transformedBounds(
-			input.width,
-			input.height,
-			anchorX,
-			anchorY,
-			rotation,
-			translationX,
-			translationY,
-			Math.max(0.05, scaleX),
-			Math.max(0.05, scaleY),
-			flipX,
-			flipY,
-			shearX,
-			shearY
-		);
-	}
-
-	function snapToResult() {
-		const bounds = currentBounds();
-		if (!bounds) return;
-		customSizeTouched = true;
-		dimsLinked = false;
-		customWidth = clampDim(bounds.width);
-		customHeight = clampDim(bounds.height);
-		freeOriginX = bounds.left;
-		freeOriginY = bounds.top;
-		placeX = null;
-		placeY = null;
 	}
 
 	function onPivotClick(event: MouseEvent) {
@@ -313,33 +247,23 @@
 		}
 
 		if (frameMode === 'fit') {
-			const pad = Math.max(0, Math.round(margin));
-			const width = Math.min(FIT_CAP, Math.max(1, bounds.width + pad * 2));
-			const height = Math.min(FIT_CAP, Math.max(1, bounds.height + pad * 2));
 			return {
-				originX: bounds.left - pad,
-				originY: bounds.top - pad,
-				width,
-				height
+				originX: bounds.left,
+				originY: bounds.top,
+				width: Math.min(FIT_CAP, bounds.width),
+				height: Math.min(FIT_CAP, bounds.height)
 			};
 		}
 
 		const width = clampDim(customWidth > 0 ? customWidth : sw);
 		const height = clampDim(customHeight > 0 ? customHeight : sh);
-		if (placeX === null || placeY === null) {
-			return { originX: freeOriginX, originY: freeOriginY, width, height };
-		}
 		return {
-			originX: Math.round((sw - width) * placeX),
-			originY: Math.round((sh - height) * placeY),
+			originX: Math.round((sw - width) / 2),
+			originY: Math.round((sh - height) / 2),
 			width,
 			height
 		};
 	});
-
-	let sizeChanged = $derived(
-		!!input && (frame.width !== input.width || frame.height !== input.height)
-	);
 
 	$effect(() => {
 		if (!input) {
@@ -488,7 +412,6 @@
 <OperatorBase title="Transformation" icon="transform" bind:enabled bind:collapsed {matchHeight} {onReset}>
 	<div class="controls">
 		<div class="frame-panel">
-			<div class="section-label">Output size</div>
 			<RadioSelect
 				options={[
 					{ label: 'Original', value: 'original' },
@@ -497,42 +420,6 @@
 				]}
 				bind:value={frameMode}
 			/>
-			<ul class="mode-notes">
-				<li class:active={frameMode === 'original'}>
-					<strong>Original</strong> keeps the input size. Pixels that leave the frame are cut off.
-				</li>
-				<li class:active={frameMode === 'fit'}>
-					<strong>Fit</strong> shrinks or grows the frame to the transformed image. Moving it does not leave empty space, because the frame follows. Use margin for a border.
-				</li>
-				<li class:active={frameMode === 'custom'}>
-					<strong>Custom</strong> is a frame you size yourself. The anchor sticks it to that point on the input.
-				</li>
-			</ul>
-
-			<div class="size-readout" aria-live="polite">
-				<span>In {input ? `${input.width}×${input.height}` : '—'}</span>
-				<span class="size-arrow">→</span>
-				<span class="size-out" class:changed={sizeChanged}>Out {frame.width}×{frame.height}</span>
-			</div>
-
-			{#if frameMode === 'fit'}
-				<div class="param-row">
-					<Parameter
-						type="range"
-						label="Margin"
-						bind:value={margin}
-						min={0}
-						max={80}
-						step={1}
-						unit="px"
-						color={Colors.gray_slate()}
-						editable
-					/>
-					<button type="button" class="mini-reset" onclick={() => (margin = 0)} title="Reset margin">
-						<span class="material-icons-round">replay</span>
-					</button>
-				</div>
-			{/if}
 
 			{#if frameMode === 'custom'}
 				<div class="dim-row">
@@ -558,53 +445,6 @@
 							onchange={(e) => setCustomHeight(Number(e.currentTarget.value))}
 						/>
 					</label>
-					<button
-						type="button"
-						class="link-btn"
-						class:linked={dimsLinked}
-						onclick={toggleDimLink}
-						title={dimsLinked ? 'Unlock aspect ratio' : 'Lock aspect ratio'}
-						aria-pressed={dimsLinked}
-					>
-						<span class="material-icons-round">{dimsLinked ? 'link' : 'link_off'}</span>
-					</button>
-				</div>
-				<div class="match-row">
-					<button type="button" class="text-btn" onclick={matchInputSize}>Match input</button>
-					<button
-						type="button"
-						class="text-btn"
-						class:current={placeX === null}
-						onclick={snapToResult}
-						title="Size the frame to the transformed image and park it there"
-					>
-						Match content
-					</button>
-				</div>
-				<div class="anchor-row">
-					<div class="snap-grid" aria-label="Frame anchor">
-						{#each [0, 0.5, 1] as ay}
-							{#each [0, 0.5, 1] as ax}
-								<button
-									type="button"
-									class="snap-dot anchor-dot"
-									class:active={placeX === ax && placeY === ay}
-									onclick={() => {
-										placeX = ax;
-										placeY = ay;
-									}}
-									aria-label="Anchor {ax === 0 ? 'left' : ax === 1 ? 'right' : 'center'} {ay === 0 ? 'top' : ay === 1 ? 'bottom' : 'middle'}"
-								></button>
-							{/each}
-						{/each}
-					</div>
-					<p class="anchor-hint">
-						{#if placeX === null}
-							Frame is sitting on the transformed image. Change width or height to add a border or crop it.
-						{:else}
-							A larger frame adds empty pixels away from the anchor. A smaller frame crops the other sides.
-						{/if}
-					</p>
 				</div>
 			{/if}
 
@@ -892,53 +732,8 @@
 		letter-spacing: 0.05em;
 	}
 
-	.mode-notes {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 3px;
-	}
-
-	.mode-notes li {
-		font: 500 0.62rem/1.35 'Inter', sans-serif;
-		color: #64748b;
-	}
-
-	.mode-notes li.active {
-		color: #e2e8f0;
-	}
-
-	.mode-notes strong {
-		font-weight: 700;
-	}
-
-	.size-readout {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 6px;
-		padding: 4px 8px;
-		border-radius: 6px;
-		background: #0f172a;
-		border: 1px solid #343d4a;
-		font: 600 0.68rem/1 monospace;
-		color: #94a3b8;
-	}
-
-	.size-arrow {
-		color: #475569;
-	}
-
-	.size-out.changed {
-		color: #facc15;
-	}
-
 	.dim-row,
-	.match-row,
-	.flip-row,
-	.anchor-row {
+	.flip-row {
 		display: flex;
 		align-items: center;
 		gap: 6px;
@@ -969,13 +764,6 @@
 	.dim-field input:focus {
 		outline: none;
 		border-color: #3b82f6;
-	}
-
-	.anchor-hint {
-		margin: 0;
-		flex: 1;
-		font: 500 0.62rem/1.35 'Inter', sans-serif;
-		color: #94a3b8;
 	}
 
 	.select-grid {
@@ -1019,12 +807,6 @@
 		background: rgba(59, 130, 246, 0.18);
 		border-color: #3b82f6;
 		color: #93c5fd;
-	}
-
-	.text-btn.current {
-		background: rgba(250, 204, 21, 0.16);
-		border-color: #eab308;
-		color: #fde68a;
 	}
 
 	.pivot-thumb-wrap {
@@ -1106,11 +888,6 @@
 	.snap-dot.active {
 		background: #3b82f6;
 		border-color: #93c5fd;
-	}
-
-	.anchor-dot.active {
-		background: #eab308;
-		border-color: #fde68a;
 	}
 
 	.pivot-readout {

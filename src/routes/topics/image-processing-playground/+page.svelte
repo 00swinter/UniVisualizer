@@ -117,7 +117,7 @@
     a: number;
   } | null>(null);
   let origHistChannels = $state({ r: true, g: true, b: true, a: false });
-  let origChannelChain = $state(false);
+  let origChannelChain = $state(true);
   let origImageChannels = $state({ r: true, g: true, b: true, a: false });
   let origLinkedToggle = $state<ChannelToggle | null>(null);
   /** Cross-component hover state per pipeline step. */
@@ -158,7 +158,7 @@
     a: number;
   } | null>(null);
   let expandedHistChannels = $state({ r: true, g: true, b: true, a: false });
-  let expandedChannelChain = $state(false);
+  let expandedChannelChain = $state(true);
   let expandedImageChannels = $state({ r: true, g: true, b: true, a: false });
   let expandedLinkedToggle = $state<ChannelToggle | null>(null);
 
@@ -622,7 +622,7 @@
     expandedGradValues = null;
     expandedImagePixel = null;
     expandedHistChannels = { r: true, g: true, b: true, a: false };
-    expandedChannelChain = false;
+    expandedChannelChain = true;
     expandedImageChannels = { r: true, g: true, b: true, a: false };
     expandedLinkedToggle = null;
   }
@@ -951,7 +951,7 @@
                   a: false,
                 }}
                 bind:channelChain={
-                  () => stepChannelChains[step.id] ?? false,
+                  () => stepChannelChains[step.id] ?? true,
                   (v) => {
                     stepChannelChains[step.id] = v;
                   }
@@ -999,7 +999,7 @@
                   }
                 }
                 linkedChannels={
-                  stepChannelChains[step.id]
+                  (stepChannelChains[step.id] ?? true)
                     ? (stepImageChannels[step.id] ?? null)
                     : null
                 }

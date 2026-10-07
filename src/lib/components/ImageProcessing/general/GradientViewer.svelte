@@ -58,7 +58,7 @@
     externalHighlightColumn = null,
     externalHighlightChannels = { r: true, g: true, b: true, a: false },
     hoveredImagePixel = $bindable(null),
-    channelChain = $bindable(false),
+    channelChain = $bindable(true),
     imageChannels = $bindable({ r: true, g: true, b: true, a: false }),
     linkedToggle = null,
   }: Props = $props();
