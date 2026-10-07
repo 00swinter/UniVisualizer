@@ -5,10 +5,16 @@
   interface Props {
     buffer?: PixelBuffer | null;
     maxRes?: number;
-  hidden?: boolean;
+    hidden?: boolean;
+    menuOpen?: boolean;
   }
 
-let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props();
+  let {
+    buffer = $bindable(null),
+    maxRes = 1500,
+    hidden = false,
+    menuOpen = $bindable(false),
+  }: Props = $props();
 
   const SAFE_MAX = 250;
 
@@ -40,7 +46,6 @@ let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props(
   let sourceImage: HTMLImageElement | null = $state(null);
   let fileInput: HTMLInputElement | undefined = $state();
 
-  let isMenuOpen = $state(false);
 
   const examples: { name: string; url: string }[] = [
     {
@@ -124,7 +129,7 @@ let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props(
         img.onerror = () => reject(new Error("Image failed to load"));
       });
       sourceImage = img;
-      isMenuOpen = false;
+      menuOpen = false;
     } catch (err) {
       console.error("Failed to load image", err);
     } finally {
@@ -187,12 +192,12 @@ let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props(
   });
 
   const closeMenu = () => {
-    isMenuOpen = false;
+    menuOpen = false;
   };
 </script>
 
 <div class="loader-wrapper">
-  {#if !hidden && !isMenuOpen}
+  {#if !hidden && !menuOpen}
     <div class="main-card">
       <div class="slider-group">
         <span class="slider-label">Res</span>
@@ -222,13 +227,10 @@ let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props(
         </label>
       </div>
 
-      <button class="btn-main" onclick={() => (isMenuOpen = true)}>
-        {sourceImage ? "Change image" : "Load image"}
-      </button>
     </div>
   {/if}
 
-  {#if isMenuOpen}
+  {#if menuOpen}
     <div
       class="modal-backdrop"
       onclick={closeMenu}
@@ -448,21 +450,6 @@ let { buffer = $bindable(null), maxRes = 1500, hidden = false }: Props = $props(
 
   .high-res.active input {
     accent-color: #f59e0b;
-  }
-
-  .btn-main {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 6px 9px;
-    border-radius: 999px;
-    font-weight: 600;
-    font-size: 0.68rem;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .btn-main:hover {
-    background: var(--accent-hover);
   }
 
   .modal-backdrop {

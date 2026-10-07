@@ -82,6 +82,7 @@
   ];
 
   let originalImage: PixelBuffer | null = $state(null);
+  let imageMenuOpen = $state(false);
   let pipeline: PipelineStep[] = $state([]);
   let dragId = $state<string | null>(null);
   let dragOffsetY = $state(0);
@@ -729,7 +730,11 @@
 {/snippet}
 
 <div class="page-layout">
-  <PixelBufferLoader bind:buffer={originalImage} hidden={!!expandedPreviewId} />
+  <PixelBufferLoader
+    bind:buffer={originalImage}
+    bind:menuOpen={imageMenuOpen}
+    hidden={!!expandedPreviewId}
+  />
 
   <div class="chain">
     <div class="step-row">
@@ -760,6 +765,13 @@
             <div class="op-bar static">
               <span class="material-icons-round">image</span>
               <span class="op-title">Original Image</span>
+              <button
+                type="button"
+                class="change-image-btn"
+                onclick={() => (imageMenuOpen = true)}
+              >
+                {originalImage ? "Change image" : "Load image"}
+              </button>
             </div>
           </div>
         </div>
@@ -1609,6 +1621,27 @@
     font-size: 0.85rem;
     font-weight: 600;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .change-image-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.72rem;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .change-image-btn:hover {
+    background: #2563eb;
   }
 
   .add-section {
