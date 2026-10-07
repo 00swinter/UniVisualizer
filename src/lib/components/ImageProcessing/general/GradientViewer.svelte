@@ -22,6 +22,12 @@
     externalHighlightChannels?: { r: boolean; g: boolean; b: boolean; a: boolean };
     /** Hovered image pixel RGBA, readable by siblings for histogram cross-highlighting. */
     hoveredImagePixel?: { x: number; y: number; r: number; g: number; b: number; a: number } | null;
+    /** When on, image, gradient, and histogram channel buttons stay in sync. */
+    channelChain?: boolean;
+    /** Channels actually shown on the image, for a chained histogram. */
+    imageChannels?: { r: boolean; g: boolean; b: boolean; a: boolean };
+    /** Histogram asked to toggle a shared channel. nonce changes on each click. */
+    linkedToggle?: { nonce: number; channel: "r" | "g" | "b" | "a" } | null;
   }
 
   type Channel = "r" | "g" | "b" | "a";
@@ -52,6 +58,9 @@
     externalHighlightColumn = null,
     externalHighlightChannels = { r: true, g: true, b: true, a: false },
     hoveredImagePixel = $bindable(null),
+    channelChain = $bindable(false),
+    imageChannels = $bindable({ r: true, g: true, b: true, a: false }),
+    linkedToggle = null,
   }: Props = $props();
 
   let gradientOpen = $state(false);
@@ -76,6 +85,56 @@
   let chartShowG = $state(true);
   let chartShowB = $state(true);
   let chartShowA = $state(false);
+
+  /** Alpha view replaces the color channels on the image. */
+  const imageChannelFlags = $derived(
+    showA
+      ? { r: false, g: false, b: false, a: true }
+      : { r: showR, g: showG, b: showB, a: false },
+  );
+
+  $effect(() => {
+    const next = imageChannelFlags;
+    if (
+      imageChannels.r === next.r &&
+      imageChannels.g === next.g &&
+      imageChannels.b === next.b &&
+      imageChannels.a === next.a
+    ) {
+      return;
+    }
+    imageChannels = next;
+  });
+
+  $effect(() => {
+    if (!channelChain) return;
+    chartShowR = imageChannelFlags.r;
+    chartShowG = imageChannelFlags.g;
+    chartShowB = imageChannelFlags.b;
+    chartShowA = imageChannelFlags.a;
+  });
+
+  /** Toggle the channels that are actually visible, then let the chain copy them out. */
+  function toggleSharedChannel(channel: "r" | "g" | "b" | "a") {
+    const shown = imageChannelFlags;
+    if (channel === "a") {
+      showA = !shown.a;
+      return;
+    }
+    showA = false;
+    showR = channel === "r" ? !shown.r : shown.r;
+    showG = channel === "g" ? !shown.g : shown.g;
+    showB = channel === "b" ? !shown.b : shown.b;
+  }
+
+  let handledToggleNonce = 0;
+  $effect(() => {
+    const request = linkedToggle;
+    if (!request || request.nonce === handledToggleNonce) return;
+    handledToggleNonce = request.nonce;
+    if (!channelChain) return;
+    toggleSharedChannel(request.channel);
+  });
 
   let resolvedWidth = $derived.by(() => {
     if (!buffer || buffer.width <= 0 || buffer.height <= 0) {
@@ -201,12 +260,20 @@
   }
 
   $effect(() => {
-    if (chartCanvas && rowData) {
-      const ctx = chartCanvas.getContext("2d");
+    const canvas = chartCanvas;
+    const data = rowData;
+    // Width lives on the drag handle. Reading it here redraws after a resize,
+    // because changing the canvas bitmap clears whatever was drawn before.
+    const plotWidth = Math.max(1, Math.round(resolvedWidth));
+    if (canvas && data) {
+      const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      const w = chartCanvas.width;
-      const h = chartCanvas.height;
+      canvas.width = plotWidth;
+      canvas.height = CHART_HEIGHT;
+
+      const w = plotWidth;
+      const h = CHART_HEIGHT;
 
       ctx.fillStyle = "#181818";
       ctx.fillRect(0, 0, w, h);
@@ -221,18 +288,18 @@
         ctx.stroke();
       });
 
-      if (rowData.length === 0) return;
+      if (data.length === 0) return;
 
       const getY = (val: number) => h - (val / 255) * h;
-      const getX = (index: number) => (index / (rowData.length - 1)) * w;
+      const getX = (index: number) => (index / (data.length - 1)) * w;
 
       const drawGraphLine = (color: string, channel: Channel) => {
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(getX(0), getY(rowData[0][channel]));
-        for (let i = 1; i < rowData.length; i++) {
-          ctx.lineTo(getX(i), getY(rowData[i][channel]));
+        ctx.moveTo(getX(0), getY(data[0][channel]));
+        for (let i = 1; i < data.length; i++) {
+          ctx.lineTo(getX(i), getY(data[i][channel]));
         }
         ctx.stroke();
       };
@@ -242,7 +309,7 @@
       if (chartShowB) drawGraphLine("#3b82f6", "b");
       if (chartShowA) drawGraphLine("#e5e7eb", "a");
 
-      if (externalHighlightColumn != null && externalHighlightColumn >= 0 && externalHighlightColumn < rowData.length) {
+      if (externalHighlightColumn != null && externalHighlightColumn >= 0 && externalHighlightColumn < data.length) {
         const x = getX(externalHighlightColumn);
         ctx.strokeStyle = "rgba(255, 200, 50, 0.6)";
         ctx.lineWidth = 1;
@@ -255,7 +322,7 @@
       }
 
       if (hoveredColumnIndex != null) {
-        const x = getX(Math.max(0, Math.min(hoveredColumnIndex, rowData.length - 1)));
+        const x = getX(Math.max(0, Math.min(hoveredColumnIndex, data.length - 1)));
         ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -338,6 +405,21 @@
             >
               A
             </button>
+            <button
+              type="button"
+              class="ch-btn chain-btn"
+              class:active={channelChain}
+              aria-pressed={channelChain}
+              title={channelChain
+                ? "Chain on. Image, gradient, and histogram channel buttons change together."
+                : "Chain. Image, gradient, and histogram channel buttons change together."}
+              aria-label="Chain"
+              onclick={() => (channelChain = !channelChain)}
+            >
+              <span class="material-icons-round" aria-hidden="true">
+                {channelChain ? "link" : "link_off"}
+              </span>
+            </button>
             {#if onExpand}
               <button
                 type="button"
@@ -393,11 +475,7 @@
                     {/each}
                   </div>
                 {/if}
-                <canvas
-                  bind:this={chartCanvas}
-                  width={resolvedWidth}
-                  height={120}
-                ></canvas>
+                <canvas bind:this={chartCanvas}></canvas>
               </div>
             </div>
 
@@ -406,7 +484,8 @@
                 type="button"
                 class="ch-btn red"
                 class:active={chartShowR}
-                onclick={() => (chartShowR = !chartShowR)}
+                onclick={() =>
+                  channelChain ? toggleSharedChannel("r") : (chartShowR = !chartShowR)}
                 title="Toggle Red"
               >
                 R
@@ -415,7 +494,8 @@
                 type="button"
                 class="ch-btn green"
                 class:active={chartShowG}
-                onclick={() => (chartShowG = !chartShowG)}
+                onclick={() =>
+                  channelChain ? toggleSharedChannel("g") : (chartShowG = !chartShowG)}
                 title="Toggle Green"
               >
                 G
@@ -424,7 +504,8 @@
                 type="button"
                 class="ch-btn blue"
                 class:active={chartShowB}
-                onclick={() => (chartShowB = !chartShowB)}
+                onclick={() =>
+                  channelChain ? toggleSharedChannel("b") : (chartShowB = !chartShowB)}
                 title="Toggle Blue"
               >
                 B
@@ -433,7 +514,8 @@
                 type="button"
                 class="ch-btn alpha"
                 class:active={chartShowA}
-                onclick={() => (chartShowA = !chartShowA)}
+                onclick={() =>
+                  channelChain ? toggleSharedChannel("a") : (chartShowA = !chartShowA)}
                 title="Toggle Alpha"
               >
                 A
@@ -571,6 +653,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    align-items: center;
     align-self: start;
   }
 
@@ -781,6 +864,27 @@
   .ch-btn:disabled {
     opacity: 0.35;
     cursor: not-allowed;
+  }
+
+  .ch-btn:disabled.active {
+    opacity: 1;
+    cursor: default;
+  }
+
+  .chain-btn {
+    margin-top: 6px;
+    color: #94a3b8;
+  }
+
+  .chain-btn .material-icons-round {
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .chain-btn.active {
+    background: #1d4ed8;
+    color: #eff6ff;
+    border-color: #60a5fa;
   }
 
   .ch-btn.active.red {

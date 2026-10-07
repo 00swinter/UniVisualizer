@@ -8,14 +8,17 @@
   import Histogram from "$lib/components/ImageProcessing/general/Histogram.svelte";
 
   import Grayscale_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Grayscale_Operator.svelte";
+  import Noise_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Noise_Operator.svelte";
   import Convolution_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Convolution_Operator.svelte";
   import Contrast_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Contrast_Operator.svelte";
+  import BitCrush_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/BitCrush_Operator.svelte";
   import HistogramEqualisation_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/HistogramEqualisation_Operator.svelte";
   import HistogramNormalisation_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/HistogramNormalisation_Operator.svelte";
   import Threshold_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Threshold_Operator.svelte";
   import Canny_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Canny_Operator.svelte";
   import Hough_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Hough_Operator.svelte";
   import Morphology_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Morphology_Operator.svelte";
+  import Distance_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Distance_Operator.svelte";
   import Transformation_Operator from "$lib/components/ImageProcessing/ImageProcessingOperators/Transformation_Operator.svelte";
 
   interface OperatorProps {
@@ -44,12 +47,14 @@
 
   const operatorRegistry: OperatorDef[] = [
     { type: "grayscale", label: "Grayscale", component: Grayscale_Operator },
+    { type: "noise", label: "Noise", component: Noise_Operator },
     {
       type: "convolution",
       label: "Convolution",
       component: Convolution_Operator,
     },
     { type: "contrast", label: "Contrast", component: Contrast_Operator },
+    { type: "bit_crush", label: "Bit Crusher", component: BitCrush_Operator },
     {
       type: "histogram_normalisation",
       label: "Histogram Normalisation",
@@ -64,6 +69,11 @@
     { type: "canny", label: "Canny", component: Canny_Operator },
     { type: "hough", label: "Hough Transform", component: Hough_Operator },
     { type: "morphology", label: "Morphology", component: Morphology_Operator },
+    {
+      type: "distance",
+      label: "Distance Transform",
+      component: Distance_Operator,
+    },
     {
       type: "transformation",
       label: "Transformation",
@@ -106,6 +116,9 @@
     a: number;
   } | null>(null);
   let origHistChannels = $state({ r: true, g: true, b: true, a: false });
+  let origChannelChain = $state(false);
+  let origImageChannels = $state({ r: true, g: true, b: true, a: false });
+  let origLinkedToggle = $state<ChannelToggle | null>(null);
   /** Cross-component hover state per pipeline step. */
   let stepHistBins: Record<string, number | null> = $state({});
   let stepGradCols: Record<string, number | null> = $state({});
@@ -121,6 +134,12 @@
     string,
     { r: boolean; g: boolean; b: boolean; a: boolean }
   > = $state({});
+  let stepChannelChains: Record<string, boolean> = $state({});
+  let stepImageChannels: Record<
+    string,
+    { r: boolean; g: boolean; b: boolean; a: boolean }
+  > = $state({});
+  let stepLinkedToggles: Record<string, ChannelToggle> = $state({});
   let expandedHistBin = $state<number | null>(null);
   let expandedGradCol = $state<number | null>(null);
   let expandedGradValues = $state<{
@@ -138,6 +157,19 @@
     a: number;
   } | null>(null);
   let expandedHistChannels = $state({ r: true, g: true, b: true, a: false });
+  let expandedChannelChain = $state(false);
+  let expandedImageChannels = $state({ r: true, g: true, b: true, a: false });
+  let expandedLinkedToggle = $state<ChannelToggle | null>(null);
+
+  type ChannelKey = "r" | "g" | "b" | "a";
+  type ChannelToggle = { nonce: number; channel: ChannelKey };
+
+  function bumpChannelToggle(
+    current: ChannelToggle | null,
+    channel: ChannelKey,
+  ): ChannelToggle {
+    return { nonce: (current?.nonce ?? 0) + 1, channel };
+  }
 
   function histHighlightBins(
     gradVals: { r: number; g: number; b: number; a: number } | null,
@@ -589,6 +621,9 @@
     expandedGradValues = null;
     expandedImagePixel = null;
     expandedHistChannels = { r: true, g: true, b: true, a: false };
+    expandedChannelChain = false;
+    expandedImageChannels = { r: true, g: true, b: true, a: false };
+    expandedLinkedToggle = null;
   }
 
   function closeExpandedStep() {
@@ -739,6 +774,9 @@
             bind:hoveredImagePixel={origImagePixel}
             externalHighlightColumn={origHistBin}
             externalHighlightChannels={origHistChannels}
+            bind:channelChain={origChannelChain}
+            bind:imageChannels={origImageChannels}
+            linkedToggle={origLinkedToggle}
             onExpand={() => openExpandedPreview(ORIGINAL_PREVIEW_ID, "image")}
           />
           {#if originalImage}
@@ -753,6 +791,10 @@
             offsetTop={IMAGE_INSET}
             bind:hoveredBin={origHistBin}
             bind:activeChannels={origHistChannels}
+            linkedChannels={origChannelChain ? origImageChannels : null}
+            onLinkedToggle={(channel) => {
+              origLinkedToggle = bumpChannelToggle(origLinkedToggle, channel);
+            }}
             externalHighlightBins={histHighlightBins(
               origGradValues,
               origImagePixel,
@@ -896,6 +938,25 @@
                   b: true,
                   a: false,
                 }}
+                bind:channelChain={
+                  () => stepChannelChains[step.id] ?? false,
+                  (v) => {
+                    stepChannelChains[step.id] = v;
+                  }
+                }
+                bind:imageChannels={
+                  () =>
+                    stepImageChannels[step.id] ?? {
+                      r: true,
+                      g: true,
+                      b: true,
+                      a: false,
+                    },
+                  (v) => {
+                    stepImageChannels[step.id] = v;
+                  }
+                }
+                linkedToggle={stepLinkedToggles[step.id] ?? null}
               />
               {#if step.output}
                 {@render imageResizeHandle(stepImageHeights[step.id] ?? 0)}
@@ -925,6 +986,17 @@
                     stepHistChannels[step.id] = v;
                   }
                 }
+                linkedChannels={
+                  stepChannelChains[step.id]
+                    ? (stepImageChannels[step.id] ?? null)
+                    : null
+                }
+                onLinkedToggle={(channel) => {
+                  stepLinkedToggles[step.id] = bumpChannelToggle(
+                    stepLinkedToggles[step.id] ?? null,
+                    channel,
+                  );
+                }}
                 externalHighlightBins={histHighlightBins(
                   stepGradValues[step.id] ?? null,
                   stepImagePixels[step.id] ?? null,
@@ -1029,6 +1101,9 @@
               bind:hoveredImagePixel={expandedImagePixel}
               externalHighlightColumn={expandedHistBin}
               externalHighlightChannels={expandedHistChannels}
+              bind:channelChain={expandedChannelChain}
+              bind:imageChannels={expandedImageChannels}
+              linkedToggle={expandedLinkedToggle}
             />
           </div>
         </div>
@@ -1062,6 +1137,9 @@
               bind:hoveredImagePixel={expandedImagePixel}
               externalHighlightColumn={expandedHistBin}
               externalHighlightChannels={expandedHistChannels}
+              bind:channelChain={expandedChannelChain}
+              bind:imageChannels={expandedImageChannels}
+              linkedToggle={expandedLinkedToggle}
             />
           </div>
 
@@ -1072,6 +1150,13 @@
               matchHeight={popupHistogramHeight}
               bind:hoveredBin={expandedHistBin}
               bind:activeChannels={expandedHistChannels}
+              linkedChannels={expandedChannelChain ? expandedImageChannels : null}
+              onLinkedToggle={(channel) => {
+                expandedLinkedToggle = bumpChannelToggle(
+                  expandedLinkedToggle,
+                  channel,
+                );
+              }}
               externalHighlightBins={histHighlightBins(
                 expandedGradValues,
                 expandedImagePixel,

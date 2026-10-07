@@ -5,12 +5,13 @@
 	let searchTerm = $state('');
 
 	const filteredTopics = $derived.by(() => {
+		const visible = topics.filter((topic) => !topic.hidden);
 		const term = searchTerm.trim().toLowerCase();
 		if (!term) {
-			return topics;
+			return visible;
 		}
 
-		return topics.filter((topic) => {
+		return visible.filter((topic) => {
 			const tags = Array.isArray(topic.tags) ? topic.tags.join(' ') : '';
 			return `${topic.title} ${tags}`.toLowerCase().includes(term);
 		});

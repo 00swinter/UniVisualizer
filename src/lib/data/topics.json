@@ -4,27 +4,31 @@
 		"title": "Test Topic",
 		"tags": ["imageprocessing", "math"],
 		"summary": "Test summary text text  text  text  text  text  text  text ",
-		"href": "/topics/topic-1"
+		"href": "/topics/topic-1",
+		"hidden": true
 	},
 	{
 		"id": "logic-parser",
 		"title": "Logic Parser",
 		"tags": ["ki-2", "logic"],
 		"summary": "evaluate logic expressions visually using truth tables",
-		"href": "/topics/logic-parser"
+		"href": "/topics/logic-parser",
+		"hidden": false
 	},
 	{
 		"id": "lattis-encryption",
 		"title": "Lattis Encryption",
 		"tags": ["cryptographie"],
 		"summary": "understand lattis encryption used in post quantum encryption",
-		"href": "/topics/lattis-encryption"
+		"href": "/topics/lattis-encryption",
+		"hidden": true
 	},
 	{
 		"id": "image-processing-playground",
 		"title": "Image Processing Playground",
 		"tags": ["Image-Processing"],
 		"summary": "play with image processing algorithms and chain them together",
-		"href": "/topics/image-processing-playground"
+		"href": "/topics/image-processing-playground",
+		"hidden": false
 	}
 ]

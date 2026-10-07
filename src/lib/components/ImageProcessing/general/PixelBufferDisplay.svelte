@@ -189,8 +189,12 @@
 
 		if (gradientHighlightColumn != null) {
 			const x = Math.max(0, Math.min(Math.round(gradientHighlightColumn), width - 1));
-			ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-			ctx.fillRect(x, 0, 1, height);
+			const histogramActive = showHistogramMatches && histogramHighlightBin != null;
+			if (!histogramActive) {
+				ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+				ctx.fillRect(0, 0, width, height);
+			}
+			ctx.clearRect(x, 0, 1, height);
 		}
 	});
 </script>

@@ -16,6 +16,10 @@
 		externalHighlightBins?: { bin: number; color: string }[];
 		/** Visible channels, bindable so siblings can mirror histogram correlation rules. */
 		activeChannels?: { r: boolean; g: boolean; b: boolean; a: boolean };
+		/** When set, these channels replace the histogram's own R G B A buttons. */
+		linkedChannels?: { r: boolean; g: boolean; b: boolean; a: boolean } | null;
+		/** Chain is on. A channel click should update the image and gradient too. */
+		onLinkedToggle?: (channel: "r" | "g" | "b" | "a") => void;
 	}
 
 	let {
@@ -26,7 +30,9 @@
 		onExpand,
 		hoveredBin = $bindable(null),
 		externalHighlightBins = [],
-		activeChannels = $bindable({ r: true, g: true, b: true, a: false })
+		activeChannels = $bindable({ r: true, g: true, b: true, a: false }),
+		linkedChannels = null,
+		onLinkedToggle
 	}: Props = $props();
 
 	let showR = $state(true);
@@ -41,9 +47,33 @@
 	let histA = $state(new Uint32Array(256));
 	let overallMaxCount = $state(1);
 
+	const viewR = $derived(linkedChannels ? linkedChannels.r : showR);
+	const viewG = $derived(linkedChannels ? linkedChannels.g : showG);
+	const viewB = $derived(linkedChannels ? linkedChannels.b : showB);
+	const viewA = $derived(linkedChannels ? linkedChannels.a : showA);
+
 	$effect(() => {
-		activeChannels = { r: showR, g: showG, b: showB, a: showA };
+		if (!linkedChannels) return;
+		showR = linkedChannels.r;
+		showG = linkedChannels.g;
+		showB = linkedChannels.b;
+		showA = linkedChannels.a;
 	});
+
+	$effect(() => {
+		activeChannels = { r: viewR, g: viewG, b: viewB, a: viewA };
+	});
+
+	function pressChannel(channel: 'r' | 'g' | 'b' | 'a') {
+		if (linkedChannels && onLinkedToggle) {
+			onLinkedToggle(channel);
+			return;
+		}
+		if (channel === 'r') showR = !showR;
+		else if (channel === 'g') showG = !showG;
+		else if (channel === 'b') showB = !showB;
+		else showA = !showA;
+	}
 
 	function getMaxCount(data: Uint32Array): number {
 		let max = 0;
@@ -55,10 +85,10 @@
 
 	let maxCount = $derived.by(() => {
 		const visibleMaxima: number[] = [];
-		if (showR) visibleMaxima.push(getMaxCount(histR));
-		if (showG) visibleMaxima.push(getMaxCount(histG));
-		if (showB) visibleMaxima.push(getMaxCount(histB));
-		if (showA) visibleMaxima.push(getMaxCount(histA));
+		if (viewR) visibleMaxima.push(getMaxCount(histR));
+		if (viewG) visibleMaxima.push(getMaxCount(histG));
+		if (viewB) visibleMaxima.push(getMaxCount(histB));
+		if (viewA) visibleMaxima.push(getMaxCount(histA));
 
 		if (visibleMaxima.length === 0) return overallMaxCount;
 		const max = Math.max(...visibleMaxima);
@@ -72,10 +102,10 @@
 		if (hoveredBin == null) return [];
 
 		const values = [{ value: hoveredBin, label: 'X' }];
-		if (showR) values.push({ value: histR[hoveredBin], label: 'R' });
-		if (showG) values.push({ value: histG[hoveredBin], label: 'G' });
-		if (showB) values.push({ value: histB[hoveredBin], label: 'B' });
-		if (showA) values.push({ value: histA[hoveredBin], label: 'A' });
+		if (viewR) values.push({ value: histR[hoveredBin], label: 'R' });
+		if (viewG) values.push({ value: histG[hoveredBin], label: 'G' });
+		if (viewB) values.push({ value: histB[hoveredBin], label: 'B' });
+		if (viewA) values.push({ value: histA[hoveredBin], label: 'A' });
 
 		return values;
 	});
@@ -211,26 +241,30 @@
 			<button
 				type="button"
 				class="toggle-btn red"
-				class:active={showR}
-				onclick={() => (showR = !showR)}>R</button
+				class:active={viewR}
+				title="Toggle Red"
+				onclick={() => pressChannel('r')}>R</button
 			>
 			<button
 				type="button"
 				class="toggle-btn green"
-				class:active={showG}
-				onclick={() => (showG = !showG)}>G</button
+				class:active={viewG}
+				title="Toggle Green"
+				onclick={() => pressChannel('g')}>G</button
 			>
 			<button
 				type="button"
 				class="toggle-btn blue"
-				class:active={showB}
-				onclick={() => (showB = !showB)}>B</button
+				class:active={viewB}
+				title="Toggle Blue"
+				onclick={() => pressChannel('b')}>B</button
 			>
 			<button
 				type="button"
 				class="toggle-btn alpha"
-				class:active={showA}
-				onclick={() => (showA = !showA)}>A</button
+				class:active={viewA}
+				title="Toggle Alpha"
+				onclick={() => pressChannel('a')}>A</button
 			>
 			{#if onExpand}
 				<button
@@ -279,16 +313,16 @@
 			<line x1="0" y1="50" x2="100" y2="50" class="grid-line" />
 			<line x1="0" y1="75" x2="100" y2="75" class="grid-line" />
 
-			{#if showR}
+			{#if viewR}
 				<path d={createBarPath(histR, maxCount)} fill="#ef4444" class="hist-layer" />
 			{/if}
-			{#if showG}
+			{#if viewG}
 				<path d={createBarPath(histG, maxCount)} fill="#22c55e" class="hist-layer" />
 			{/if}
-			{#if showB}
+			{#if viewB}
 				<path d={createBarPath(histB, maxCount)} fill="#3b82f6" class="hist-layer" />
 			{/if}
-			{#if showA}
+			{#if viewA}
 				<path d={createBarPath(histA, maxCount)} fill="#e5e7eb" class="hist-layer" />
 			{/if}
 
@@ -415,6 +449,14 @@
 		background: #e5e7eb;
 		color: #111;
 		border-color: #e5e7eb;
+	}
+
+	.toggle-btn:disabled {
+		cursor: default;
+	}
+
+	.toggle-btn:disabled:not(.active) {
+		opacity: 0.45;
 	}
 
 	.expand-btn {
